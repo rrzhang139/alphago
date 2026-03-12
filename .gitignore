@@ -1,0 +1,15 @@
+.env
+.venv/
+*.pt
+*.safetensors
+*.bin
+*.ckpt
+__pycache__/
+wandb/
+.cache/
+*.tar.gz
+build/
+*.egg-info/
+*.so
+dist/
+.DS_Store

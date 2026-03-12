@@ -1,0 +1,32 @@
+{
+  "experiment": "c_puct sweep",
+  "c_puct_values": [
+    0.1,
+    0.5,
+    1.0,
+    2.0,
+    5.0
+  ],
+  "training": {
+    "num_iterations": 15,
+    "games_per_iteration": 50,
+    "epochs_per_iteration": 10,
+    "batch_size": 64,
+    "lr": 0.001
+  },
+  "arena": {
+    "arena_games": 30,
+    "update_threshold": 0.55
+  },
+  "network": {
+    "hidden_size": 128,
+    "num_layers": 4
+  },
+  "mcts_other": {
+    "num_simulations": 25,
+    "dirichlet_alpha": 0.3,
+    "dirichlet_epsilon": 0.25,
+    "temp_threshold": 15
+  },
+  "seed": 42
+}

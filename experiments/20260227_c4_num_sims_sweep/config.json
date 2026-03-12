@@ -1,0 +1,34 @@
+{
+  "experiment": "num_simulations sweep \u2014 Connect Four",
+  "game": "connect4",
+  "sim_counts": [
+    1,
+    5,
+    10,
+    25,
+    50,
+    100
+  ],
+  "training": {
+    "num_iterations": 15,
+    "games_per_iteration": 50,
+    "epochs_per_iteration": 10,
+    "batch_size": 64,
+    "lr": 0.001
+  },
+  "arena": {
+    "arena_games": 30,
+    "update_threshold": 0.55
+  },
+  "network": {
+    "hidden_size": 128,
+    "num_layers": 4
+  },
+  "mcts_other": {
+    "c_puct": 1.0,
+    "dirichlet_alpha": 0.3,
+    "dirichlet_epsilon": 0.25,
+    "temp_threshold": 15
+  },
+  "seed": 42
+}
