@@ -348,6 +348,84 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
     }
 }
 
+// --- BatchInferenceCoordinator ---
+
+BatchInferenceCoordinator::BatchInferenceCoordinator(
+    const PredictFn& fn, int nn_input_size, int action_size)
+    : predict_fn_(fn), nn_input_size_(nn_input_size), action_size_(action_size) {}
+
+void BatchInferenceCoordinator::submit(InferenceBatchRequest& req) {
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        pending_.push_back(&req);
+    }
+    cv_.notify_one();
+
+    // Spin-wait for result (low latency — coordinator processes quickly)
+    while (!req.done.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+    }
+}
+
+void BatchInferenceCoordinator::run() {
+    while (running_.load(std::memory_order_relaxed)) {
+        std::vector<InferenceBatchRequest*> batch;
+        {
+            std::unique_lock<std::mutex> lock(mtx_);
+            cv_.wait(lock, [&] { return !pending_.empty() || !running_; });
+            if (!running_ && pending_.empty()) break;
+
+            // Brief unlock + sleep to let more workers enqueue
+            lock.unlock();
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+            lock.lock();
+
+            batch.swap(pending_);
+        }
+
+        if (batch.empty()) continue;
+
+        // Assemble mega-batch
+        int total_states = 0;
+        for (auto* req : batch) total_states += req->num_states;
+
+        batch_states_.resize(total_states * nn_input_size_);
+        batch_policies_.resize(total_states * action_size_);
+        batch_values_.resize(total_states);
+
+        int offset = 0;
+        for (auto* req : batch) {
+            std::memcpy(batch_states_.data() + offset * nn_input_size_,
+                        req->states,
+                        req->num_states * nn_input_size_ * sizeof(float));
+            offset += req->num_states;
+        }
+
+        // Single NN call (acquires GIL inside predict_fn)
+        predict_fn_(batch_states_.data(), total_states, nn_input_size_,
+                    batch_policies_.data(), batch_values_.data(), action_size_);
+
+        // Dispatch results back to workers
+        offset = 0;
+        for (auto* req : batch) {
+            std::memcpy(req->policies_out,
+                        batch_policies_.data() + offset * action_size_,
+                        req->num_states * action_size_ * sizeof(float));
+            std::memcpy(req->values_out,
+                        batch_values_.data() + offset,
+                        req->num_states * sizeof(float));
+            offset += req->num_states;
+
+            req->done.store(true, std::memory_order_release);
+        }
+    }
+}
+
+void BatchInferenceCoordinator::stop() {
+    running_.store(false, std::memory_order_relaxed);
+    cv_.notify_one();
+}
+
 // --- Multi-threaded generation ---
 
 std::pair<std::vector<Example>, GameStats>
@@ -361,23 +439,16 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
     GameStats stats;
     std::vector<int> game_lengths;
 
-    // Keep predict_fn on the main thread's stack; workers access it via pointer
-    // to avoid copying the std::function (which may contain Python objects).
-    auto worker_fn = [&](int worker_id) {
-        SelfPlayWorker worker(game, config, worker_id,
-                              static_cast<unsigned>(42 + worker_id));
+    if (num_threads <= 1) {
+        // Single-threaded: direct predict_fn calls (no coordinator overhead)
+        SelfPlayWorker worker(game, config, 0, 42);
         worker.set_predict_fn(&predict_fn);
 
         while (true) {
             int remaining = games_remaining.fetch_sub(1);
-            if (remaining <= 0) {
-                games_remaining.fetch_add(1); // undo
-                break;
-            }
+            if (remaining <= 0) break;
 
             auto result = worker.play_game();
-
-            std::lock_guard<std::mutex> lock(results_mutex);
 
             if (result.outcome == 1) stats.p1_wins++;
             else if (result.outcome == -1) stats.p2_wins++;
@@ -388,20 +459,66 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
                                 std::make_move_iterator(result.examples.begin()),
                                 std::make_move_iterator(result.examples.end()));
         }
-    };
-
-    if (num_threads <= 1) {
-        // Single-threaded: run on calling thread (avoids GIL issues with std::thread)
-        worker_fn(0);
     } else {
-        // Multi-threaded: launch worker threads
+        // Multi-threaded: coordinator batches all NN requests across workers
+        BatchInferenceCoordinator coordinator(predict_fn, game.nn_input_size,
+                                              game.n2 + 1);
+
+        // Create a wrapper PredictFn that routes through the coordinator
+        PredictFn batched_predict = [&coordinator](
+            const float* states, int batch_size, int nn_input_size,
+            float* policies_out, float* values_out, int action_size) {
+            InferenceBatchRequest req;
+            req.states = states;
+            req.num_states = batch_size;
+            req.policies_out = policies_out;
+            req.values_out = values_out;
+            req.done.store(false, std::memory_order_relaxed);
+            coordinator.submit(req);
+        };
+
+        // Start coordinator thread
+        std::thread coordinator_thread([&coordinator] { coordinator.run(); });
+
+        // Launch worker threads
         std::vector<std::thread> threads;
         for (int i = 0; i < num_threads; i++) {
-            threads.emplace_back(worker_fn, i);
+            threads.emplace_back([&, i]() {
+                SelfPlayWorker worker(game, config, i,
+                                      static_cast<unsigned>(42 + i));
+                worker.set_predict_fn(&batched_predict);
+
+                while (true) {
+                    int remaining = games_remaining.fetch_sub(1);
+                    if (remaining <= 0) {
+                        games_remaining.fetch_add(1);
+                        break;
+                    }
+
+                    auto result = worker.play_game();
+
+                    std::lock_guard<std::mutex> lock(results_mutex);
+
+                    if (result.outcome == 1) stats.p1_wins++;
+                    else if (result.outcome == -1) stats.p2_wins++;
+                    else stats.draws++;
+
+                    game_lengths.push_back(result.game_length);
+                    all_examples.insert(all_examples.end(),
+                                        std::make_move_iterator(result.examples.begin()),
+                                        std::make_move_iterator(result.examples.end()));
+                }
+            });
         }
+
+        // Wait for all workers to finish
         for (auto& t : threads) {
             t.join();
         }
+
+        // Stop coordinator
+        coordinator.stop();
+        coordinator_thread.join();
     }
 
     // Compute stats

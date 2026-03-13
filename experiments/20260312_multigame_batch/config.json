@@ -1,0 +1,12 @@
+{
+  "hypothesis": "Multi-game batched inference coordinator will increase GPU utilization from ~39% to 60-80% by combining NN requests from N concurrent games into one mega-batch",
+  "baseline": "v2 C++ MCTS, 1 thread, direct predict_fn (5.3x self-play speedup, 39% GPU util)",
+  "variables": {
+    "num_threads": [1, 2, 4, 8],
+    "game": "go9",
+    "num_simulations": 200,
+    "nn_batch_size": 64,
+    "num_games": 50,
+    "iterations": 5
+  }
+}

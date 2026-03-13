@@ -45,24 +45,54 @@ struct GameStats {
     float mean_search_depth = 0.0f;
 };
 
-// Inference request: a batch of canonical states to evaluate
-struct InferenceRequest {
-    int worker_id;
-    std::vector<const float*> states;  // pointers to canonical state data
-    int num_states;
-    // Results written here by inference thread
-    std::vector<std::vector<float>> policies;
-    std::vector<float> values;
-    bool done = false;
-    std::mutex mtx;
-    std::condition_variable cv;
-};
-
 // Type for the Python predict function callback
 // Input: (batch_size, nn_input_size) flat float array
 // Output: policies (batch_size * action_size), values (batch_size)
 using PredictFn = std::function<void(const float* states, int batch_size, int nn_input_size,
                                       float* policies_out, float* values_out, int action_size)>;
+
+// Inference request submitted by a worker to the BatchInferenceCoordinator.
+// Created on the worker's stack; the coordinator reads input, writes output,
+// then sets done=true. Worker spin-waits on done.
+struct InferenceBatchRequest {
+    const float* states;       // input: contiguous (num_states × nn_input_size) floats
+    int num_states;
+    float* policies_out;       // output: (num_states × action_size) floats
+    float* values_out;         // output: (num_states) floats
+    std::atomic<bool> done{false};
+};
+
+// Collects NN eval requests from multiple C++ worker threads and processes
+// them in a single mega-batch. Only the coordinator thread calls predict_fn
+// (and acquires the GIL), so workers never contend for it.
+class BatchInferenceCoordinator {
+public:
+    BatchInferenceCoordinator(const PredictFn& fn, int nn_input_size, int action_size);
+
+    // Worker calls this — blocks until the request has been processed.
+    void submit(InferenceBatchRequest& req);
+
+    // Inference loop — runs on a dedicated thread.
+    void run();
+
+    // Signal the loop to exit (called after all workers are done).
+    void stop();
+
+private:
+    const PredictFn& predict_fn_;
+    int nn_input_size_;
+    int action_size_;
+
+    std::mutex mtx_;
+    std::condition_variable cv_;
+    std::vector<InferenceBatchRequest*> pending_;
+    std::atomic<bool> running_{true};
+
+    // Pre-allocated buffers for the mega-batch (grown as needed)
+    std::vector<float> batch_states_;
+    std::vector<float> batch_policies_;
+    std::vector<float> batch_values_;
+};
 
 class SelfPlayWorker {
 public:
