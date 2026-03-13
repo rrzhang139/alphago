@@ -1,0 +1,14 @@
+{
+  "goal": "Beat GnuGo level 10 (~5 kyu) on 9x9 Go",
+  "approach": "MiniZero-scale training with C++ multi-game batched inference (v3)",
+  "total_games": "100,000 (500/iter × 200 iters)",
+  "warm_start": "playout_cap best (100% vs random, 12 iters, 1200 games)",
+  "key_configs": {
+    "network": "CNN 128f, 4 res blocks",
+    "mcts": "200 sims, playout cap 12.5%, FPU 0.2, temp decay halflife 19",
+    "training": "cosine LR 0.002→1e-5, weight decay 1e-4, batch 256",
+    "infrastructure": "C++ MCTS, 10 threads, 25µs coordinator wait"
+  },
+  "estimated_time": "8-12 hours on RTX A4000",
+  "estimated_cost": "$1.50-2.00"
+}
