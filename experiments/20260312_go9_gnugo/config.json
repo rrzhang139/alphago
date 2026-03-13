@@ -1,14 +1,56 @@
 {
-  "goal": "Beat GnuGo level 10 (~5 kyu) on 9x9 Go",
-  "approach": "MiniZero-scale training with C++ multi-game batched inference (v3)",
-  "total_games": "100,000 (500/iter × 200 iters)",
-  "warm_start": "playout_cap best (100% vs random, 12 iters, 1200 games)",
-  "key_configs": {
-    "network": "CNN 128f, 4 res blocks",
-    "mcts": "200 sims, playout cap 12.5%, FPU 0.2, temp decay halflife 19",
-    "training": "cosine LR 0.002→1e-5, weight decay 1e-4, batch 256",
-    "infrastructure": "C++ MCTS, 10 threads, 25µs coordinator wait"
+  "mcts": {
+    "num_simulations": 200,
+    "c_puct": 1.0,
+    "dirichlet_alpha": 0.12,
+    "dirichlet_epsilon": 0.25,
+    "temperature": 1.0,
+    "temp_threshold": 30,
+    "temp_decay_halflife": 19,
+    "nn_batch_size": 64,
+    "playout_cap_prob": 0.125,
+    "playout_cap_cheap_fraction": 0.15,
+    "fpu_reduction": 0.2,
+    "root_fpu_reduction": 0.1,
+    "c_puct_base": 0.0,
+    "coordinator_wait_us": 25,
+    "progressive_sims": false,
+    "min_sims": 50
   },
-  "estimated_time": "8-12 hours on RTX A4000",
-  "estimated_cost": "$1.50-2.00"
+  "network": {
+    "network_type": "cnn",
+    "hidden_size": 128,
+    "num_layers": 4,
+    "num_filters": 128,
+    "num_res_blocks": 4,
+    "dropout": 0.0,
+    "global_pool_value": false,
+    "use_batch_norm": true,
+    "use_se": false
+  },
+  "training": {
+    "lr": 0.002,
+    "weight_decay": 0.0001,
+    "lr_schedule": "cosine",
+    "lr_min": 1e-05,
+    "batch_size": 256,
+    "epochs_per_iteration": 10,
+    "max_buffer_size": 200000,
+    "buffer_strategy": "fifo",
+    "buffer_window": 20,
+    "num_iterations": 200,
+    "games_per_iteration": 500,
+    "checkpoint_dir": "/workspace/code/alphago/experiments/20260312_go9_gnugo/data/checkpoints"
+  },
+  "arena": {
+    "arena_games": 0,
+    "update_threshold": 0.55,
+    "eval_games": 10
+  },
+  "game": "go9",
+  "seed": 42,
+  "num_workers": 10,
+  "use_cpp_mcts": true,
+  "use_wandb": false,
+  "wandb_project": "alphazero"
 }

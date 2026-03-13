@@ -125,7 +125,7 @@ def main():
         arena=ArenaConfig(arena_games=0, eval_games=10),
         num_workers=10,         # Multi-game batching: 10 threads
         use_cpp_mcts=True,      # C++ MCTS engine
-        use_wandb=True,
+        use_wandb=False,
         wandb_project="alphazero",
     )
 
