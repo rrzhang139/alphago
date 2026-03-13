@@ -251,6 +251,12 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
 
     std::uniform_real_distribution<float> uniform(0.0f, 1.0f);
 
+    // Diagnostics accumulators (only for full-search moves)
+    float sum_root_value = 0.0f;
+    float sum_entropy = 0.0f;
+    float sum_depth = 0.0f;
+    int diag_count = 0;
+
     while (true) {
         // Reset arena each move — MCTS tree only lives for one move.
         // This prevents arena growth/realloc which would invalidate pointers.
@@ -299,6 +305,40 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
         std::vector<float> pi(action_size);
         extract_policy(root, temp, pi.data());
 
+        // Collect diagnostics for full-search moves
+        if (is_full) {
+            // Root value
+            sum_root_value += root->Q();
+
+            // Policy entropy: -sum(pi * log(pi))
+            float entropy = 0.0f;
+            for (int i = 0; i < action_size; i++) {
+                if (pi[i] > 1e-8f) {
+                    entropy -= pi[i] * std::log(pi[i]);
+                }
+            }
+            sum_entropy += entropy;
+
+            // Search depth: max depth from root visit counts
+            // Approximate as max child visits / total visits ratio → use total root N
+            float max_depth = 0.0f;
+            // Walk deepest path
+            MCTSNode* node = root;
+            float d = 0.0f;
+            while (node->num_children > 0) {
+                MCTSNode* best = node->children[0];
+                for (int i = 1; i < node->num_children; i++) {
+                    if (node->children[i]->N > best->N) best = node->children[i];
+                }
+                if (best->N == 0) break;
+                d += 1.0f;
+                node = best;
+            }
+            sum_depth += d;
+
+            diag_count++;
+        }
+
         // Record trajectory
         trajectory.push_back({
             std::vector<float>(canonical.data(), canonical.data() + game_.nn_input_size),
@@ -341,7 +381,16 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
                 examples.push_back({entry.canonical, entry.policy, v});
             }
 
-            return {std::move(examples), outcome, move_count};
+            GameResult result;
+            result.examples = std::move(examples);
+            result.outcome = outcome;
+            result.game_length = move_count;
+            if (diag_count > 0) {
+                result.mean_root_value = sum_root_value / diag_count;
+                result.mean_policy_entropy = sum_entropy / diag_count;
+                result.mean_search_depth = sum_depth / diag_count;
+            }
+            return result;
         }
 
         player = -player;
@@ -441,6 +490,23 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
     std::vector<Example> all_examples;
     GameStats stats;
     std::vector<int> game_lengths;
+    std::vector<float> root_values;
+    std::vector<float> policy_entropies;
+    std::vector<float> search_depths;
+
+    auto collect_result = [&](SelfPlayWorker::GameResult& result) {
+        if (result.outcome == 1) stats.p1_wins++;
+        else if (result.outcome == -1) stats.p2_wins++;
+        else stats.draws++;
+
+        game_lengths.push_back(result.game_length);
+        root_values.push_back(result.mean_root_value);
+        policy_entropies.push_back(result.mean_policy_entropy);
+        search_depths.push_back(result.mean_search_depth);
+        all_examples.insert(all_examples.end(),
+                            std::make_move_iterator(result.examples.begin()),
+                            std::make_move_iterator(result.examples.end()));
+    };
 
     if (num_threads <= 1) {
         // Single-threaded: direct predict_fn calls (no coordinator overhead)
@@ -452,15 +518,7 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
             if (remaining <= 0) break;
 
             auto result = worker.play_game();
-
-            if (result.outcome == 1) stats.p1_wins++;
-            else if (result.outcome == -1) stats.p2_wins++;
-            else stats.draws++;
-
-            game_lengths.push_back(result.game_length);
-            all_examples.insert(all_examples.end(),
-                                std::make_move_iterator(result.examples.begin()),
-                                std::make_move_iterator(result.examples.end()));
+            collect_result(result);
         }
     } else {
         // Multi-threaded: coordinator batches all NN requests across workers
@@ -502,15 +560,7 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
                     auto result = worker.play_game();
 
                     std::lock_guard<std::mutex> lock(results_mutex);
-
-                    if (result.outcome == 1) stats.p1_wins++;
-                    else if (result.outcome == -1) stats.p2_wins++;
-                    else stats.draws++;
-
-                    game_lengths.push_back(result.game_length);
-                    all_examples.insert(all_examples.end(),
-                                        std::make_move_iterator(result.examples.begin()),
-                                        std::make_move_iterator(result.examples.end()));
+                    collect_result(result);
                 }
             });
         }
@@ -527,9 +577,20 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
 
     // Compute stats
     if (!game_lengths.empty()) {
+        float n = static_cast<float>(game_lengths.size());
         float sum = 0.0f;
         for (int len : game_lengths) sum += len;
-        stats.mean_game_length = sum / game_lengths.size();
+        stats.mean_game_length = sum / n;
+
+        float rv_sum = 0.0f, ent_sum = 0.0f, dep_sum = 0.0f;
+        for (size_t i = 0; i < game_lengths.size(); i++) {
+            rv_sum += root_values[i];
+            ent_sum += policy_entropies[i];
+            dep_sum += search_depths[i];
+        }
+        stats.mean_root_value = rv_sum / n;
+        stats.mean_policy_entropy = ent_sum / n;
+        stats.mean_search_depth = dep_sum / n;
     }
 
     return {std::move(all_examples), stats};

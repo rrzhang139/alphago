@@ -108,6 +108,10 @@ public:
         std::vector<Example> examples;
         int outcome;
         int game_length;
+        // MCTS diagnostics (averaged over full-search moves)
+        float mean_root_value = 0.0f;
+        float mean_policy_entropy = 0.0f;
+        float mean_search_depth = 0.0f;
     };
     GameResult play_game();
 
