@@ -351,8 +351,9 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
 // --- BatchInferenceCoordinator ---
 
 BatchInferenceCoordinator::BatchInferenceCoordinator(
-    const PredictFn& fn, int nn_input_size, int action_size)
-    : predict_fn_(fn), nn_input_size_(nn_input_size), action_size_(action_size) {}
+    const PredictFn& fn, int nn_input_size, int action_size, int wait_us)
+    : predict_fn_(fn), nn_input_size_(nn_input_size), action_size_(action_size),
+      wait_us_(wait_us) {}
 
 void BatchInferenceCoordinator::submit(InferenceBatchRequest& req) {
     {
@@ -376,9 +377,11 @@ void BatchInferenceCoordinator::run() {
             if (!running_ && pending_.empty()) break;
 
             // Brief unlock + sleep to let more workers enqueue
-            lock.unlock();
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-            lock.lock();
+            if (wait_us_ > 0) {
+                lock.unlock();
+                std::this_thread::sleep_for(std::chrono::microseconds(wait_us_));
+                lock.lock();
+            }
 
             batch.swap(pending_);
         }
@@ -462,7 +465,8 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
     } else {
         // Multi-threaded: coordinator batches all NN requests across workers
         BatchInferenceCoordinator coordinator(predict_fn, game.nn_input_size,
-                                              game.n2 + 1);
+                                              game.n2 + 1,
+                                              config.coordinator_wait_us);
 
         // Create a wrapper PredictFn that routes through the coordinator
         PredictFn batched_predict = [&coordinator](

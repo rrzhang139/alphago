@@ -88,7 +88,8 @@ NB_MODULE(_mcts_cpp, m) {
         .def_rw("playout_cap_cheap_fraction", &MCTSCppConfig::playout_cap_cheap_fraction)
         .def_rw("fpu_reduction", &MCTSCppConfig::fpu_reduction)
         .def_rw("root_fpu_reduction", &MCTSCppConfig::root_fpu_reduction)
-        .def_rw("c_puct_base", &MCTSCppConfig::c_puct_base);
+        .def_rw("c_puct_base", &MCTSCppConfig::c_puct_base)
+        .def_rw("coordinator_wait_us", &MCTSCppConfig::coordinator_wait_us);
 
     // --- GameStats ---
     nb::class_<GameStats>(m, "GameStats")
