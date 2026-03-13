@@ -49,7 +49,7 @@ def _convert_config(py_config: PyMCTSConfig):
     cfg.fpu_reduction = getattr(py_config, 'fpu_reduction', 0.0)
     cfg.root_fpu_reduction = getattr(py_config, 'root_fpu_reduction', -1.0)
     cfg.c_puct_base = getattr(py_config, 'c_puct_base', 0.0)
-    cfg.coordinator_wait_us = getattr(py_config, 'coordinator_wait_us', 50)
+    cfg.coordinator_wait_us = getattr(py_config, 'coordinator_wait_us', 25)
     return cfg
 
 

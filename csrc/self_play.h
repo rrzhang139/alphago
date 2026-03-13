@@ -25,7 +25,7 @@ struct MCTSCppConfig {
     float fpu_reduction = 0.0f;
     float root_fpu_reduction = -1.0f;
     float c_puct_base = 0.0f;
-    int coordinator_wait_us = 50;  // BatchInferenceCoordinator sleep (microseconds)
+    int coordinator_wait_us = 25;  // BatchInferenceCoordinator sleep (microseconds)
 };
 
 // Single training example
@@ -69,7 +69,7 @@ struct InferenceBatchRequest {
 class BatchInferenceCoordinator {
 public:
     BatchInferenceCoordinator(const PredictFn& fn, int nn_input_size, int action_size,
-                              int wait_us = 50);
+                              int wait_us = 25);
 
     // Worker calls this — blocks until the request has been processed.
     void submit(InferenceBatchRequest& req);

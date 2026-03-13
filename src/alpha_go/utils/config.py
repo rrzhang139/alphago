@@ -68,7 +68,7 @@ class MCTSConfig:
     """Log-based c_puct scaling: effective_c = c_puct * log((parent_N + c_puct_base + 1) / c_puct_base).
     0.0 = disabled (constant c_puct). AlphaZero uses 19652. Reduces exploration as visit count grows."""
 
-    coordinator_wait_us: int = 50
+    coordinator_wait_us: int = 25
     """Microseconds the BatchInferenceCoordinator sleeps to accumulate requests before firing a mega-batch.
     Higher = bigger batches (better GPU throughput) but more latency per request. 0 = no wait."""
 
