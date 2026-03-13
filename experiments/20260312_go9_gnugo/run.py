@@ -122,7 +122,7 @@ def main():
             lr_schedule="cosine",
             lr_min=1e-5,
         ),
-        arena=ArenaConfig(arena_games=0, eval_games=10),
+        arena=ArenaConfig(arena_games=0, eval_games=0),  # Skip eval (multiprocessing pool is slow on cloud vCPUs)
         num_workers=10,         # Multi-game batching: 10 threads
         use_cpp_mcts=True,      # C++ MCTS engine
         use_wandb=False,
