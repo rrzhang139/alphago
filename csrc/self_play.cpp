@@ -377,7 +377,7 @@ void BatchInferenceCoordinator::run() {
 
             // Brief unlock + sleep to let more workers enqueue
             lock.unlock();
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
             lock.lock();
 
             batch.swap(pending_);
