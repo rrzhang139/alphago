@@ -159,7 +159,7 @@ def main():
 
     NUM_GAMES = 50
     BENCH_ITERS = 5
-    THREAD_COUNTS = [1, 2, 4, 8]
+    THREAD_COUNTS = [1, 8, 10]  # 1=v2 baseline, 8+10=v3 multi-game
 
     model = create_model(game, config.network, lr=training_config.lr,
                          weight_decay=training_config.weight_decay)
