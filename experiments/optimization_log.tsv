@@ -16,3 +16,5 @@ experiment	timestamp	type	description	metric	baseline	result	status	notes
 014_split_fpu	2026-03-11T00:14	algo	Root FPU 0.1 vs non-root 0.2 (KataGo)	-	-	impl	keep	Better root exploration
 015_temp_decay	2026-03-11T00:15	algo	Exponential temp decay halflife=19	-	-	impl	keep	KataGo-style smooth decay
 016_dynamic_cpuct	2026-03-11T00:16	algo	Log-scaled c_puct (AlphaZero base=19652)	-	-	impl	keep	Reduces exploration at high visits
+017_fix_c	2026-03-13T00:00	train	Go9 100 iters: constant LR 0.001, 2 epochs, FIFO 200K	total_loss	U-shaped	3.22	keep	Hump iters 17-41, recovers. Policy 2.86, value 0.36. Depth 3.0.
+018_fix_d	2026-03-13T00:01	train	Go9 100 iters: constant LR 0.001, 5 epochs, window buf 10	total_loss	3.22(fix_c)	3.06	keep	WINNER. Value 0.26 (vs 0.36). Window buffer beats FIFO. Phase 1 complete.
