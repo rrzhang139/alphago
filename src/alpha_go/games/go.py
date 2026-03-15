@@ -405,6 +405,62 @@ class Go(Game):
 
         return p1_score - p2_score - komi
 
+    def get_ownership_map(self, state: np.ndarray, player: int = 1) -> np.ndarray:
+        """Return per-intersection ownership from player's perspective.
+
+        Returns array of shape (N*N,) with values:
+            +1.0 = owned by player (stone or territory)
+            -1.0 = owned by opponent
+             0.0 = neutral/contested
+
+        Uses Tromp-Taylor area scoring (same as terminal scoring).
+        """
+        board = self._get_current_board(state)
+        ownership = np.zeros(self.n2, dtype=np.float32)
+
+        # Stones are owned by their color
+        for idx in range(self.n2):
+            if board[idx] == 1.0:
+                ownership[idx] = 1.0
+            elif board[idx] == -1.0:
+                ownership[idx] = -1.0
+
+        # Flood-fill empty regions for territory
+        visited = np.zeros(self.n2, dtype=bool)
+        for idx in range(self.n2):
+            if board[idx] != 0 or visited[idx]:
+                continue
+            region = []
+            borders = set()
+            stack = [idx]
+            while stack:
+                pos = stack.pop()
+                if visited[pos]:
+                    continue
+                if board[pos] != 0:
+                    borders.add(int(board[pos]))
+                    continue
+                visited[pos] = True
+                region.append(pos)
+                for nbr in self._neighbors[pos]:
+                    if not visited[nbr]:
+                        stack.append(nbr)
+
+            # Territory owned by single color
+            if borders == {1}:
+                for pos in region:
+                    ownership[pos] = 1.0
+            elif borders == {-1}:
+                for pos in region:
+                    ownership[pos] = -1.0
+            # else: neutral
+
+        # Adjust for player's perspective
+        if player == -1:
+            ownership = -ownership
+
+        return ownership
+
     def get_board_size(self) -> int:
         return self.nn_input_size  # 17 * N * N
 

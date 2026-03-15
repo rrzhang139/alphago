@@ -42,7 +42,18 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 - **Goal**: >80% win rate vs GnuGo level 1
 - **Eval**: `eval_vs_gnugo.py --gnugo-level 1 --num-games 50`
 - **Estimated**: 500+ iterations × 500 games with stable training
-- **Status**: Fix D (100 iters) evaluated: 65% vs random, 0/10 vs GnuGo L1. Still very weak - needs much more training. Scale500 experiment queued for GPU (500 iters warm-start from Fix D). SE+globalpool experiment also queued (200 iters from scratch with improved architecture).
+- **Status**: Fix D (100 iters) evaluated: 65% vs random, 0/10 vs GnuGo L1. Still very weak - needs much more training.
+- **GPU experiments queued**:
+  - `scale500`: 500 iters warm-start from Fix D (may have old alpha=0.12)
+  - `fresh_correct`: 300 iters from scratch, correct alpha=0.03, c_puct=1.5
+  - `se_globalpool`: 200 iters with SE blocks + global pooling
+  - `liberty_planes`: 300 iters with KataGo-style 23-plane input (depends on fresh_correct)
+- **New features implemented (not yet GPU-tested)**:
+  - Policy surprise weighting (KataGo PSW) — upweight training samples where MCTS disagrees with network
+  - Shaped Dirichlet noise — bias exploration toward plausible moves
+  - Liberty planes input features — 6 extra planes encoding group health
+  - Checkpoint/resume for crash recovery
+  - Iteration-numbered snapshots + W&B artifact uploads
 - **Key insight**: 100 iters is far too few for Go 9x9. Policy loss 2.80 is still very high (random is 4.4). Need 500+ iterations minimum. Also consider: dirichlet_alpha=0.03 (standard for Go) instead of 0.12.
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
