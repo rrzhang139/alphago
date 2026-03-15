@@ -39,7 +39,8 @@ def self_play_game(
     collect_diagnostics: bool = False,
     score_value_weight: float = 0.0,
     score_value_scale: float = 20.0,
-) -> tuple[list[tuple[np.ndarray, np.ndarray, float]], int, dict]:
+    collect_ownership: bool = False,
+) -> tuple[list[tuple], int, dict]:
     """Play one game of self-play, returning training examples, outcome, and diagnostics.
 
     Supports KataGo-style playout cap randomization when mcts_config.playout_cap_prob < 1.0:
@@ -121,6 +122,12 @@ def self_play_game(
                 if raw_score is not None:
                     score_target = float(np.tanh(raw_score / score_value_scale))
 
+            # Compute ownership map from terminal position (KataGo auxiliary target)
+            ownership_map = None
+            if collect_ownership and hasattr(game, 'get_ownership_map'):
+                # Ownership from P1's perspective (we'll flip for P2 below)
+                ownership_map = game.get_ownership_map(state, player=1)
+
             # Assign per-position values — only full-search positions if using playout cap
             examples = []
             for canonical_state, traj_player, traj_pi, traj_full in trajectory:
@@ -136,7 +143,12 @@ def self_play_game(
                     sv = score_target if traj_player == player else -score_target
                     v = (1 - score_value_weight) * v + score_value_weight * sv
 
-                examples.append((canonical_state, traj_pi, v))
+                if ownership_map is not None:
+                    # Ownership from traj_player's perspective
+                    own = ownership_map * traj_player  # flip for player -1
+                    examples.append((canonical_state, traj_pi, v, own))
+                else:
+                    examples.append((canonical_state, traj_pi, v))
 
             game_diag = {}
             if collect_diagnostics:
@@ -150,6 +162,41 @@ def self_play_game(
             return examples, outcome, game_diag
 
         player = -player
+
+
+def _augment_examples(game, examples, output_list):
+    """Apply symmetry augmentation to examples (handles both 3-tuple and 4-tuple).
+
+    For 4-tuple (state, pi, value, ownership): ownership is spatially augmented
+    the same way as the board (rotations + reflections).
+    """
+    has_ownership = len(examples) > 0 and len(examples[0]) > 3
+
+    if not has_ownership:
+        # Standard 3-tuple: use get_symmetries directly
+        for state, pi, v in examples:
+            for sym_state, sym_pi in game.get_symmetries(state, pi):
+                output_list.append((sym_state, sym_pi, v))
+    else:
+        # 4-tuple with ownership: augment ownership map alongside state/pi
+        n = getattr(game, 'size', None)
+        if n is None:
+            # Fallback: no spatial augmentation for ownership
+            for state, pi, v, own in examples:
+                for sym_state, sym_pi in game.get_symmetries(state, pi):
+                    output_list.append((sym_state, sym_pi, v, own))
+            return
+
+        for state, pi, v, own in examples:
+            own_2d = own.reshape(n, n)
+            sym_list = game.get_symmetries(state, pi)
+            for idx, (sym_state, sym_pi) in enumerate(sym_list):
+                rotation = idx // 2
+                is_flipped = idx % 2 == 1
+                sym_own = np.rot90(own_2d, rotation)
+                if is_flipped:
+                    sym_own = np.fliplr(sym_own)
+                output_list.append((sym_state, sym_pi, v, sym_own.flatten().copy()))
 
 
 def _worker_self_play_game(args):
@@ -245,9 +292,7 @@ def _generate_sequential(
             search_depths.append(diag['mean_search_depth'])
 
         if augment:
-            for state, pi, v in examples:
-                for sym_state, sym_pi in game.get_symmetries(state, pi):
-                    all_examples.append((sym_state, sym_pi, v))
+            _augment_examples(game, examples, all_examples)
         else:
             all_examples.extend(examples)
 

@@ -232,7 +232,8 @@ class ConvNetWrapper:
             values = v.squeeze(-1).cpu().numpy()
         return list(policies), list(values)
 
-    def train_step(self, states: np.ndarray, target_pis: np.ndarray, target_vs: np.ndarray) -> dict[str, float]:
+    def train_step(self, states: np.ndarray, target_pis: np.ndarray, target_vs: np.ndarray,
+                   target_ownership: np.ndarray | None = None) -> dict[str, float]:
         self.net.train()
         device = self.net.device
 
@@ -240,26 +241,28 @@ class ConvNetWrapper:
         target_pis_t = torch.FloatTensor(target_pis).to(device)
         target_vs_t = torch.FloatTensor(target_vs).unsqueeze(1).to(device)
 
-        log_pi, v = self.net(states_t)
+        # Forward pass — use ownership head if available and targets provided
+        use_own = (target_ownership is not None and
+                   getattr(self.net, 'use_ownership', False))
+        if use_own:
+            log_pi, v, own_pred = self.net.forward_with_ownership(states_t)
+            target_own_t = torch.FloatTensor(target_ownership).to(device)
+        else:
+            log_pi, v = self.net(states_t)
 
         psw_lambda = getattr(self, '_policy_surprise_weight', 0.0)
         if psw_lambda > 0:
-            # Policy surprise weighting (KataGo): weight = 1 + λ * KL(π_mcts || π_net)
-            # KL(π_mcts || π_net) = Σ π_mcts * (log π_mcts - log π_net)
-            # Only over nonzero π_mcts entries to avoid log(0)
             with torch.no_grad():
                 log_target = torch.log(target_pis_t + 1e-8)
-                kl_per_sample = torch.sum(target_pis_t * (log_target - log_pi), dim=1)  # (B,)
-                kl_per_sample = torch.clamp(kl_per_sample, min=0.0)  # KL should be non-negative
-                weights = 1.0 + psw_lambda * kl_per_sample  # (B,)
-                weights = weights / weights.mean()  # normalize to preserve loss scale
+                kl_per_sample = torch.sum(target_pis_t * (log_target - log_pi), dim=1)
+                kl_per_sample = torch.clamp(kl_per_sample, min=0.0)
+                weights = 1.0 + psw_lambda * kl_per_sample
+                weights = weights / weights.mean()
 
-            # Weighted policy loss: per-sample cross-entropy weighted by surprise
-            per_sample_policy_loss = -torch.sum(target_pis_t * log_pi, dim=1)  # (B,)
+            per_sample_policy_loss = -torch.sum(target_pis_t * log_pi, dim=1)
             policy_loss = torch.mean(weights * per_sample_policy_loss)
 
-            # Weighted value loss
-            per_sample_value_loss = (v.squeeze(1) - target_vs_t.squeeze(1)) ** 2  # (B,)
+            per_sample_value_loss = (v.squeeze(1) - target_vs_t.squeeze(1)) ** 2
             value_loss = torch.mean(weights * per_sample_value_loss)
         else:
             policy_loss = -torch.sum(target_pis_t * log_pi) / states_t.size(0)
@@ -268,17 +271,26 @@ class ConvNetWrapper:
         vlw = getattr(self, '_value_loss_weight', 1.0)
         total_loss = policy_loss + vlw * value_loss
 
+        # Ownership loss (MSE between predicted and target ownership)
+        result = {
+            'total_loss': 0.0,  # set after backward
+            'policy_loss': policy_loss.item(),
+            'value_loss': value_loss.item(),
+        }
+        if use_own:
+            olw = getattr(self, '_ownership_loss_weight', 0.02)
+            ownership_loss = F.mse_loss(own_pred, target_own_t)
+            total_loss = total_loss + olw * ownership_loss
+            result['ownership_loss'] = ownership_loss.item()
+
         self.optimizer.zero_grad()
         total_loss.backward()
         if hasattr(self, '_max_grad_norm') and self._max_grad_norm > 0:
             torch.nn.utils.clip_grad_norm_(self.net.parameters(), self._max_grad_norm)
         self.optimizer.step()
 
-        return {
-            'total_loss': total_loss.item(),
-            'policy_loss': policy_loss.item(),
-            'value_loss': value_loss.item(),
-        }
+        result['total_loss'] = total_loss.item()
+        return result
 
     def save(self, path: str):
         torch.save({

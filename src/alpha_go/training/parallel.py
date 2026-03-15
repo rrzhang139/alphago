@@ -185,9 +185,8 @@ def generate_gpu_parallel_self_play(game, model, mcts_config, num_games: int,
             search_depths.append(diag['mean_search_depth'])
 
         if augment:
-            for state, pi, v in examples:
-                for sym_state, sym_pi in game.get_symmetries(state, pi):
-                    all_examples.append((sym_state, sym_pi, v))
+            from .self_play import _augment_examples
+            _augment_examples(game, examples, all_examples)
         else:
             all_examples.extend(examples)
 
