@@ -7,7 +7,8 @@ from .simple_net import SimpleNetWrapper
 
 
 def create_model(game, config: NetworkConfig, lr: float = 0.001, weight_decay: float = 0.0,
-                  max_grad_norm: float = 0.0, value_loss_weight: float = 1.0):
+                  max_grad_norm: float = 0.0, value_loss_weight: float = 1.0,
+                  policy_surprise_weight: float = 0.0):
     """Factory: create the right model wrapper based on config.network_type.
 
     Args:
@@ -41,4 +42,5 @@ def create_model(game, config: NetworkConfig, lr: float = 0.001, weight_decay: f
     # Set training parameters on the model wrapper
     model._max_grad_norm = max_grad_norm
     model._value_loss_weight = value_loss_weight
+    model._policy_surprise_weight = policy_surprise_weight
     return model

@@ -183,6 +183,12 @@ class TrainingConfig:
     """Scale for score-based value targets: target = tanh(score / scale).
     For Go 9x9: typical scores range 0.5-30, scale=20 maps well to [-1,1]."""
 
+    policy_surprise_weight: float = 0.0
+    """Policy surprise weighting (KataGo). Upweight training samples where MCTS
+    policy differs most from network policy. Weight = 1 + λ * KL(π_mcts || π_net).
+    0.0 = disabled (uniform weighting). KataGo uses ~1.0. Positions where MCTS
+    significantly corrects the network are more informative training examples."""
+
     checkpoint_interval: int = 25
     """Save checkpoint every N iterations for crash recovery. 0 = only save at end.
     Checkpoint includes model, optimizer, history, buffer state, and iteration number."""

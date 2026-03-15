@@ -197,8 +197,29 @@ class ConvNetWrapper:
 
         log_pi, v = self.net(states_t)
 
-        policy_loss = -torch.sum(target_pis_t * log_pi) / states_t.size(0)
-        value_loss = F.mse_loss(v, target_vs_t)
+        psw_lambda = getattr(self, '_policy_surprise_weight', 0.0)
+        if psw_lambda > 0:
+            # Policy surprise weighting (KataGo): weight = 1 + λ * KL(π_mcts || π_net)
+            # KL(π_mcts || π_net) = Σ π_mcts * (log π_mcts - log π_net)
+            # Only over nonzero π_mcts entries to avoid log(0)
+            with torch.no_grad():
+                log_target = torch.log(target_pis_t + 1e-8)
+                kl_per_sample = torch.sum(target_pis_t * (log_target - log_pi), dim=1)  # (B,)
+                kl_per_sample = torch.clamp(kl_per_sample, min=0.0)  # KL should be non-negative
+                weights = 1.0 + psw_lambda * kl_per_sample  # (B,)
+                weights = weights / weights.mean()  # normalize to preserve loss scale
+
+            # Weighted policy loss: per-sample cross-entropy weighted by surprise
+            per_sample_policy_loss = -torch.sum(target_pis_t * log_pi, dim=1)  # (B,)
+            policy_loss = torch.mean(weights * per_sample_policy_loss)
+
+            # Weighted value loss
+            per_sample_value_loss = (v.squeeze(1) - target_vs_t.squeeze(1)) ** 2  # (B,)
+            value_loss = torch.mean(weights * per_sample_value_loss)
+        else:
+            policy_loss = -torch.sum(target_pis_t * log_pi) / states_t.size(0)
+            value_loss = F.mse_loss(v, target_vs_t)
+
         vlw = getattr(self, '_value_loss_weight', 1.0)
         total_loss = policy_loss + vlw * value_loss
 
@@ -241,4 +262,6 @@ class ConvNetWrapper:
             new_wrapper._max_grad_norm = self._max_grad_norm
         if hasattr(self, '_value_loss_weight'):
             new_wrapper._value_loss_weight = self._value_loss_weight
+        if hasattr(self, '_policy_surprise_weight'):
+            new_wrapper._policy_surprise_weight = self._policy_surprise_weight
         return new_wrapper

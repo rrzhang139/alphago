@@ -108,11 +108,24 @@ class SimpleNetWrapper:
 
         log_pi, v = self.net(states_t)
 
-        # Policy loss: cross-entropy (negative log-likelihood weighted by target)
-        policy_loss = -torch.sum(target_pis_t * log_pi) / states_t.size(0)
+        psw_lambda = getattr(self, '_policy_surprise_weight', 0.0)
+        if psw_lambda > 0:
+            # Policy surprise weighting (KataGo): weight = 1 + λ * KL(π_mcts || π_net)
+            with torch.no_grad():
+                log_target = torch.log(target_pis_t + 1e-8)
+                kl_per_sample = torch.sum(target_pis_t * (log_target - log_pi), dim=1)
+                kl_per_sample = torch.clamp(kl_per_sample, min=0.0)
+                weights = 1.0 + psw_lambda * kl_per_sample
+                weights = weights / weights.mean()  # normalize to preserve loss scale
 
-        # Value loss: MSE
-        value_loss = F.mse_loss(v, target_vs_t)
+            per_sample_policy_loss = -torch.sum(target_pis_t * log_pi, dim=1)
+            policy_loss = torch.mean(weights * per_sample_policy_loss)
+
+            per_sample_value_loss = (v.squeeze(1) - target_vs_t.squeeze(1)) ** 2
+            value_loss = torch.mean(weights * per_sample_value_loss)
+        else:
+            policy_loss = -torch.sum(target_pis_t * log_pi) / states_t.size(0)
+            value_loss = F.mse_loss(v, target_vs_t)
 
         vlw = getattr(self, '_value_loss_weight', 1.0)
         total_loss = policy_loss + vlw * value_loss
@@ -148,4 +161,6 @@ class SimpleNetWrapper:
             new_wrapper._max_grad_norm = self._max_grad_norm
         if hasattr(self, '_value_loss_weight'):
             new_wrapper._value_loss_weight = self._value_loss_weight
+        if hasattr(self, '_policy_surprise_weight'):
+            new_wrapper._policy_surprise_weight = self._policy_surprise_weight
         return new_wrapper
