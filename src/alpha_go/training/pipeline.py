@@ -573,7 +573,11 @@ def _save_history(history: dict, checkpoint_dir: str):
 
 def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history,
                      checkpoint_dir, use_window):
-    """Save a full training checkpoint for crash recovery."""
+    """Save a full training checkpoint for crash recovery.
+
+    Note: replay buffer is NOT saved (can be multi-GB for Go 9x9).
+    On resume, the buffer starts empty and refills within buffer_window iterations.
+    """
     ckpt_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
     model.save(ckpt_path)
 
@@ -581,13 +585,9 @@ def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history
         'iteration': iteration,
         'history': history,
         'use_window': use_window,
+        # Buffer NOT saved — too large for Go 9x9 (100K+ positions × 1460 floats).
+        # On resume, buffer starts empty and refills in buffer_window iterations.
     }
-
-    # Save buffer state
-    if use_window:
-        state['iteration_history'] = iteration_history
-    else:
-        state['replay_buffer'] = list(replay_buffer)
 
     state_path = os.path.join(checkpoint_dir, 'checkpoint_state.pkl')
     with open(state_path, 'wb') as f:
@@ -600,7 +600,11 @@ def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history
 
 
 def _load_checkpoint(model, checkpoint_dir, max_buffer_size):
-    """Load a training checkpoint. Returns (history, replay_buffer, iteration_history, start_iter, use_window) or None."""
+    """Load a training checkpoint. Returns (history, replay_buffer, iteration_history, start_iter, use_window) or None.
+
+    Note: replay buffer is NOT restored (too large to checkpoint for Go 9x9).
+    On resume, the buffer starts empty and refills within buffer_window iterations.
+    """
     ckpt_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
     state_path = os.path.join(checkpoint_dir, 'checkpoint_state.pkl')
 
@@ -617,16 +621,11 @@ def _load_checkpoint(model, checkpoint_dir, max_buffer_size):
     use_window = state['use_window']
     start_iter = state['iteration']
 
-    iteration_history = None
-    replay_buffer = None
+    # Buffer starts empty on resume — refills within buffer_window iterations
+    iteration_history = []
+    replay_buffer = deque(maxlen=max_buffer_size)
 
-    if use_window:
-        iteration_history = state.get('iteration_history', [])
-    else:
-        buf_data = state.get('replay_buffer', [])
-        replay_buffer = deque(buf_data, maxlen=max_buffer_size)
-
-    print(f"  [Resumed from iteration {start_iter}, {len(history['iteration'])} iters of history]")
+    print(f"  [Resumed from iteration {start_iter}, buffer empty (refills in ~10 iters)]")
 
     return history, replay_buffer, iteration_history, start_iter, use_window
 
