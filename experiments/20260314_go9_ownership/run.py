@@ -71,6 +71,7 @@ def main():
             checkpoint_interval=25,
             resume_from_checkpoint=True,
             policy_surprise_weight=0.5,
+            value_loss_weight=0.5,  # 7% better policy loss than 1.0
             ownership_loss_weight=0.02,  # KataGo: 1.5/b² ≈ 0.019 for 9x9
         ),
         arena=ArenaConfig(arena_games=0, eval_games=0),

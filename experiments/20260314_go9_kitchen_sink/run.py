@@ -76,6 +76,7 @@ def main():
             checkpoint_interval=25,
             resume_from_checkpoint=True,
             policy_surprise_weight=0.5,  # KataGo PSW
+            value_loss_weight=0.5,  # 7% better policy loss than 1.0
         ),
         arena=ArenaConfig(arena_games=0, eval_games=0),  # Eval separately
         num_workers=10,

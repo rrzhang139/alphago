@@ -60,6 +60,7 @@ def main():
             weight_decay=1e-4,
             batch_size=256,
             epochs_per_iteration=5,
+            value_loss_weight=0.5,  # 7% better policy loss than 1.0
             num_iterations=200,     # 200 iters from scratch
             games_per_iteration=100,  # Tuned for A5000+Threadripper
             max_buffer_size=200000,
