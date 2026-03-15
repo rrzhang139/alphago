@@ -45,6 +45,6 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | `go9_scale500` | high | **DONE** ✓ Loss 1.60, 3.6h, $0.58 | none |
 | `go9_fresh_correct` | high | **DONE** ✓ Loss 1.639, 3.1h, $0.50 | none |
 | `go9_se_globalpool` | medium | **DONE** ✓ Loss **1.389**, 3.4h, $0.54 — BEST | none |
-| `go9_kitchen_sink` | medium | UNBLOCKED — pod `40nhl0indqjuza` available | go9_scale500 ✓ |
+| `go9_kitchen_sink` | medium | **RUNNING** (pod `40nhl0indqjuza`, iter 25/300) | go9_scale500 ✓ |
 | `go9_liberty_planes` | medium | UNBLOCKED — needs pod | go9_fresh_correct ✓ |
 | `go9_ownership` | low | QUEUED | go9_kitchen_sink |
