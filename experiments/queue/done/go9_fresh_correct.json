@@ -1,0 +1,18 @@
+{
+  "name": "go9_fresh_correct",
+  "priority": "high",
+  "hypothesis": "Training from scratch with correct dirichlet_alpha=0.03 and c_puct=1.5 gives better results than warm-starting from Fix D (which was trained with broken alpha=0.12 and conservative c_puct=1.0). The model may have learned bad habits from insufficient exploration.",
+  "run_script": "experiments/20260314_go9_fresh_correct/run.py",
+  "gpu": "A4000",
+  "estimated_time": "20h",
+  "requested_at": "2026-03-14T12:00:00Z",
+  "success_criteria": ">80% vs random by iter 150, >95% by iter 300. Kill early if loss plateaus for 100 iters.",
+  "notes": "No warm start. Correct alpha=0.03, c_puct=1.5, window buffer, FPU 0.2/0.1. Compare directly to scale500 (warm-start). If this beats scale500, it means Fix D's habits hurt more than the warm-start helped.",
+  "completed_at": "2026-03-14T14:30:00Z",
+  "status": "success",
+  "wall_time": "3.1h",
+  "cost": "$0.50",
+  "best_loss": 1.639,
+  "results_dir": "experiments/20260314_go9_fresh_correct/data/checkpoints/",
+  "summary": "300 iters from scratch completed. Loss 4.92→1.639 (best). 183.4 min on A5000 (Xeon E5-2699 v3). At iter 128, loss was 1.70 — already matching scale500's 1.75 at iter 385. CONFIRMS HYPOTHESIS: correct alpha=0.03 and c_puct=1.5 from scratch outperforms warm-starting from Fix D (trained with alpha=0.12). vsRandom not tested during training (eval=0). Unblocks go9_liberty_planes."
+}

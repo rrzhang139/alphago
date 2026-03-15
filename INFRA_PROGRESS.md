@@ -19,7 +19,8 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | 2026-03-14 | **Launched go9_fresh_correct** | 300 iters from scratch, 100 games/iter, 200 sims. Loss 4.9→2.8 in 5 iters (~20s/iter). | est ~$0.27 (1.7h) | Pod `40nhl0indqjuza`. Auto-push on completion. Faster than expected on 64-core Xeon. |
 | 2026-03-14 | **go9_scale500 COMPLETED** (500/500 iters) | Loss 3.5→1.60 (best). 3.6h wall time. Pod `2hjaizpk34u1oj` (Threadripper). | **$0.58 total** | Pushed to git. Queue moved to done/. Loss plateaued 1.75 for iters 150-400. |
 | 2026-03-14 | **Terminated pod** `2hjaizpk34u1oj` | go9_scale500 complete, results pushed. | $0.58 total | Weights at `experiments/20260313_go9_scale500/data/checkpoints/`. |
-| 2026-03-14 | **go9_fresh_correct status: iter ~150/300** | Loss 1.70 at iter 128 — outperforming scale500 (1.75 at same loss level by iter 385). | ~$0.16/hr ongoing | From-scratch with alpha=0.03, c_puct=1.5 clearly better than warm-start from Fix D. |
+| 2026-03-14 | **go9_fresh_correct COMPLETED** (300/300 iters) | Loss 4.92→1.639 (best). 3.1h on A5000 (Xeon). | **$0.50 total** | **Outperformed scale500**: loss 1.70 by iter 128 vs scale500's 1.75 at iter 385. Correct alpha=0.03 > warm-start. |
+| 2026-03-14 | **Launching go9_se_globalpool** on existing pod `40nhl0indqjuza` | Reusing Xeon pod. 200 iters, SE blocks + global pool, from scratch. | $0.16/hr | Next medium-priority experiment (no dependencies). |
 
 ## Infra Learnings
 
@@ -41,8 +42,8 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | Request | Priority | Status | Dependencies |
 |---------|----------|--------|-------------|
 | `go9_scale500` | high | **DONE** ✓ Loss 1.60, 3.6h, $0.58 | none |
-| `go9_fresh_correct` | high | **RUNNING** (iter ~150/300, pod `40nhl0indqjuza`) | none |
-| `go9_se_globalpool` | medium | QUEUED — next on freed Threadripper pod | none |
-| `go9_kitchen_sink` | medium | UNBLOCKED (scale500 done) | go9_scale500 ✓ |
-| `go9_liberty_planes` | medium | QUEUED | go9_fresh_correct |
+| `go9_fresh_correct` | high | **DONE** ✓ Loss 1.639, 3.1h, $0.50 | none |
+| `go9_se_globalpool` | medium | **LAUNCHING** on pod `40nhl0indqjuza` | none |
+| `go9_kitchen_sink` | medium | UNBLOCKED — needs pod | go9_scale500 ✓ |
+| `go9_liberty_planes` | medium | UNBLOCKED — needs pod | go9_fresh_correct ✓ |
 | `go9_ownership` | low | QUEUED | go9_kitchen_sink |
