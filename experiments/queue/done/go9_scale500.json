@@ -1,0 +1,19 @@
+{
+  "name": "go9_scale500",
+  "priority": "high",
+  "hypothesis": "100 iters (Fix D) only reaches 50% vs random. Need 500+ iters with proven Fix D config (window buffer, constant LR, 5 epochs) to reach GnuGo L1 level.",
+  "run_script": "experiments/20260313_go9_scale500/run.py",
+  "gpu": "A4000",
+  "estimated_time": "35h",
+  "requested_at": "2026-03-13T22:00:00Z",
+  "success_criteria": ">90% vs random by iter 200, loss continuing to decrease. Kill early if loss plateaus for 100 iters.",
+  "warm_start": "experiments/20260313_go9_fix_d/data/checkpoints/best.pt",
+  "notes": "Fix D (100 iters) results: loss 3.06, value loss 0.26, 50% vs random, 0/10 vs GnuGo L1. eval_games=20 enabled to track play strength. W&B enabled.",
+  "completed_at": "2026-03-14T12:30:00Z",
+  "status": "success",
+  "wall_time": "3.6h",
+  "cost": "$0.58",
+  "best_loss": 1.605,
+  "results_dir": "experiments/20260313_go9_scale500/data/checkpoints/",
+  "summary": "500 iters completed. Loss decreased from 3.5 (warm start) to 1.60 best. Policy loss 1.44, value loss 0.17. Loss plateaued around 1.75 from iter 150-400, then slight improvement to 1.60. vsRandom not tested (eval_games=0). Run on A5000+Threadripper pod (tuned config: 100 games/iter, nn_batch=8). NOTE: fresh_correct experiment (from scratch with alpha=0.03, c_puct=1.5) reached loss 1.70 at iter 128 — suggesting correct hyperparams matter more than warm-starting."
+}

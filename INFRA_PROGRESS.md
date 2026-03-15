@@ -17,6 +17,9 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | 2026-03-14 | **go9_scale500 status: iter 218/500** | Loss ~1.75, policy entropy ~0.65, depth ~7.8. ~25s/iter. Still healthy. | ~$0.40 so far | Pod `2hjaizpk34u1oj` (Threadripper). ETA ~2h remaining. |
 | 2026-03-14 | **Provisioned pod** `40nhl0indqjuza` (go9-fresh-correct) | RTX A5000 $0.16/hr, Xeon E5-2699 v3 (64 cores). | $0.16/hr | High-priority queue request. From-scratch training with correct alpha=0.03, c_puct=1.5. |
 | 2026-03-14 | **Launched go9_fresh_correct** | 300 iters from scratch, 100 games/iter, 200 sims. Loss 4.9→2.8 in 5 iters (~20s/iter). | est ~$0.27 (1.7h) | Pod `40nhl0indqjuza`. Auto-push on completion. Faster than expected on 64-core Xeon. |
+| 2026-03-14 | **go9_scale500 COMPLETED** (500/500 iters) | Loss 3.5→1.60 (best). 3.6h wall time. Pod `2hjaizpk34u1oj` (Threadripper). | **$0.58 total** | Pushed to git. Queue moved to done/. Loss plateaued 1.75 for iters 150-400. |
+| 2026-03-14 | **Terminated pod** `2hjaizpk34u1oj` | go9_scale500 complete, results pushed. | $0.58 total | Weights at `experiments/20260313_go9_scale500/data/checkpoints/`. |
+| 2026-03-14 | **go9_fresh_correct status: iter ~150/300** | Loss 1.70 at iter 128 — outperforming scale500 (1.75 at same loss level by iter 385). | ~$0.16/hr ongoing | From-scratch with alpha=0.03, c_puct=1.5 clearly better than warm-start from Fix D. |
 
 ## Infra Learnings
 
@@ -37,9 +40,9 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 
 | Request | Priority | Status | Dependencies |
 |---------|----------|--------|-------------|
-| `go9_scale500` | high | **RUNNING** (iter 218/500, pod `2hjaizpk34u1oj`) | none |
-| `go9_fresh_correct` | high | **RUNNING** (iter 5/300, pod `40nhl0indqjuza`) | none |
-| `go9_se_globalpool` | medium | QUEUED | none |
-| `go9_kitchen_sink` | medium | QUEUED | go9_scale500 |
+| `go9_scale500` | high | **DONE** ✓ Loss 1.60, 3.6h, $0.58 | none |
+| `go9_fresh_correct` | high | **RUNNING** (iter ~150/300, pod `40nhl0indqjuza`) | none |
+| `go9_se_globalpool` | medium | QUEUED — next on freed Threadripper pod | none |
+| `go9_kitchen_sink` | medium | UNBLOCKED (scale500 done) | go9_scale500 ✓ |
 | `go9_liberty_planes` | medium | QUEUED | go9_fresh_correct |
 | `go9_ownership` | low | QUEUED | go9_kitchen_sink |
