@@ -14,6 +14,9 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | 2026-03-14 | **Provisioned pod** `2hjaizpk34u1oj` (A5000, Threadripper) | RTX A5000 $0.16/hr. AMD Ryzen Threadripper PRO 5955WX — massively faster CPU. | $0.16/hr | Much better host for CPU-bound MCTS. |
 | 2026-03-14 | **Tuned config**: 100 games/iter, nn_batch=8, eval_games=0 | 500 games too slow. 100 games = 8s/iter. eval_games=20 added 4min/iter — disabled. | — | Key insight: nn_batch_size=64 caused batching overhead. nn_batch=8 is optimal. |
 | 2026-03-14 | **Launched go9_scale500 v2** | 500 iters, 100 games/iter, 200 sims, eval=0. Loss 3.5→1.7 in 18 iters (~5min). GPU 97%. | est ~$0.56 (3.5h) | Auto-push on completion. Healthy training: loss ↓, entropy ↓, depth ↑. |
+| 2026-03-14 | **go9_scale500 status: iter 218/500** | Loss ~1.75, policy entropy ~0.65, depth ~7.8. ~25s/iter. Still healthy. | ~$0.40 so far | Pod `2hjaizpk34u1oj` (Threadripper). ETA ~2h remaining. |
+| 2026-03-14 | **Provisioned pod** `40nhl0indqjuza` (go9-fresh-correct) | RTX A5000 $0.16/hr, Xeon E5-2699 v3 (64 cores). | $0.16/hr | High-priority queue request. From-scratch training with correct alpha=0.03, c_puct=1.5. |
+| 2026-03-14 | **Launched go9_fresh_correct** | 300 iters from scratch, 100 games/iter, 200 sims. Loss 4.9→2.8 in 5 iters (~20s/iter). | est ~$0.27 (1.7h) | Pod `40nhl0indqjuza`. Auto-push on completion. Faster than expected on 64-core Xeon. |
 
 ## Infra Learnings
 
@@ -28,3 +31,15 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 - **nn_batch_size=64 is too large**: Causes batching coordination overhead between workers. nn_batch_size=8 is optimal — 10x faster iterations.
 - **eval_games is expensive**: 20 eval games add ~4 min per iteration. Set eval_games=0 during training, eval separately after.
 - **Pod CPU matters more than GPU for AlphaZero**: Self-play is CPU-bound (MCTS tree ops). GPU is used for NN inference but is not the bottleneck. Choose pods by CPU, not GPU.
+- **Xeon E5-2699 v3 (64 cores) performance**: ~20s/iter with 100 games, 200 sims, nn_batch=8. Slower per-core than Threadripper (25s vs 27s) but surprisingly workable. Many cores compensate.
+
+## Pending Queue
+
+| Request | Priority | Status | Dependencies |
+|---------|----------|--------|-------------|
+| `go9_scale500` | high | **RUNNING** (iter 218/500, pod `2hjaizpk34u1oj`) | none |
+| `go9_fresh_correct` | high | **RUNNING** (iter 5/300, pod `40nhl0indqjuza`) | none |
+| `go9_se_globalpool` | medium | QUEUED | none |
+| `go9_kitchen_sink` | medium | QUEUED | go9_scale500 |
+| `go9_liberty_planes` | medium | QUEUED | go9_fresh_correct |
+| `go9_ownership` | low | QUEUED | go9_kitchen_sink |
