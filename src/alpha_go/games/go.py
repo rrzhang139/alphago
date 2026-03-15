@@ -39,11 +39,16 @@ COLOR_PLANE = 2 * NUM_HISTORY           # plane 16
 
 class Go(Game):
 
-    def __init__(self, size: int = 9):
+    def __init__(self, size: int = 9, use_liberty_planes: bool = False):
         self.size = size
         self.n2 = size * size
-        self.num_planes = 2 * NUM_HISTORY + 1  # 17
-        self.nn_input_size = self.num_planes * self.n2  # 17 * N * N
+        self.use_liberty_planes = use_liberty_planes
+        # 17 base planes + optionally 6 liberty planes (3 own + 3 opponent)
+        self.num_liberty_planes = 6 if use_liberty_planes else 0
+        self._base_planes = 2 * NUM_HISTORY + 1  # always 17
+        self.num_planes = self._base_planes + self.num_liberty_planes  # 17 or 23
+        self._base_nn_size = self._base_planes * self.n2  # 17 * N * N (internal state)
+        self.nn_input_size = self.num_planes * self.n2  # 17 or 23 * N * N (NN input)
         self.pass_action = self.n2  # last action index = pass
         self._neighbors = self._build_neighbors()
 
@@ -77,8 +82,8 @@ class Go(Game):
     # ------------------------------------------------------------------
 
     def _get_planes(self, state: np.ndarray) -> np.ndarray:
-        """Return (17, N*N) view of the plane data."""
-        return state[:self.nn_input_size].reshape(self.num_planes, self.n2)
+        """Return (17, N*N) view of the base plane data (no liberty planes)."""
+        return state[:self._base_nn_size].reshape(self._base_planes, self.n2)
 
     def _get_current_board(self, state: np.ndarray) -> np.ndarray:
         """Reconstruct flat board (N*N,) with {0, 1, -1} from planes 0 and 8."""
@@ -87,17 +92,17 @@ class Go(Game):
         return (planes[0] - planes[NUM_HISTORY]).copy()
 
     def _get_pass_count(self, state: np.ndarray) -> int:
-        return int(state[self.nn_input_size])
+        return int(state[self._base_nn_size])
 
     def _set_pass_count(self, state: np.ndarray, count: int):
-        state[self.nn_input_size] = float(count)
+        state[self._base_nn_size] = float(count)
 
     def _get_ko_point(self, state: np.ndarray) -> int:
         """Return ko point index, or -1 if none."""
-        return int(state[self.nn_input_size + 1])
+        return int(state[self._base_nn_size + 1])
 
     def _set_ko_point(self, state: np.ndarray, ko: int):
-        state[self.nn_input_size + 1] = float(ko)
+        state[self._base_nn_size + 1] = float(ko)
 
     def _get_color_to_move(self, state: np.ndarray) -> int:
         """Return 1 if player 1 to move, -1 if player -1."""
@@ -249,7 +254,8 @@ class Go(Game):
 
     def get_initial_state(self) -> np.ndarray:
         """Empty board, player 1 (Black) to move, no ko, 0 passes."""
-        state = np.zeros(self.nn_input_size + 2, dtype=np.float32)
+        # Internal state is always 17*N*N + 2 (base planes + pass_count + ko_point)
+        state = np.zeros(self._base_nn_size + 2, dtype=np.float32)
         # Color plane: 1.0 = player 1 to move
         planes = self._get_planes(state)
         planes[COLOR_PLANE] = 1.0
@@ -409,22 +415,78 @@ class Go(Game):
         return self.n2 + 1  # board intersections + pass
 
     def get_canonical_state(self, state: np.ndarray, player: int) -> np.ndarray:
-        """Return NN input (17*N*N floats) from given player's perspective.
+        """Return NN input from given player's perspective.
 
-        If player == 1: return planes as-is (just the NN portion).
-        If player == -1: swap planes 0-7 <-> 8-15, flip color plane.
+        Base: 17 planes (8 history per player + color). Always present.
+        Optional: +6 liberty planes (3 own + 3 opponent) when use_liberty_planes=True.
+
+        If player == 1: return planes as-is.
+        If player == -1: swap planes 0-7 <-> 8-15, flip color plane,
+                         swap own/opponent liberty planes.
         """
-        if player == 1:
-            return state[:self.nn_input_size].copy()
-        # player == -1: need to swap planes
-        planes = state[:self.nn_input_size].reshape(self.num_planes, self.n2).copy()
-        # Swap player 1 and player -1 history planes
-        p1_copy = planes[P1_PLANES].copy()
-        planes[P1_PLANES] = planes[P2_PLANES]
-        planes[P2_PLANES] = p1_copy
-        # Flip color plane
-        planes[COLOR_PLANE] = 1.0 - planes[COLOR_PLANE]
-        return planes.flatten()
+        # Get base 17 planes
+        base = state[:self._base_nn_size].reshape(self._base_planes, self.n2).copy()
+
+        if player == -1:
+            # Swap player 1 and player -1 history planes
+            p1_copy = base[P1_PLANES].copy()
+            base[P1_PLANES] = base[P2_PLANES]
+            base[P2_PLANES] = p1_copy
+            # Flip color plane
+            base[COLOR_PLANE] = 1.0 - base[COLOR_PLANE]
+
+        if not self.use_liberty_planes:
+            return base.flatten()
+
+        # Compute liberty planes from current board position
+        board = (base[0] - base[NUM_HISTORY])  # current board from canonical perspective
+        # own = player's stones (plane 0), opp = opponent's stones (plane 8)
+        # After canonical transform, plane 0 is always "my" stones
+        lib_planes = self._compute_liberty_planes(board)
+
+        # Concatenate: [17 base planes, 6 liberty planes]
+        result = np.zeros(self.nn_input_size, dtype=np.float32)
+        result[:self._base_nn_size] = base.flatten()
+        result[self._base_nn_size:] = lib_planes.flatten()
+        return result
+
+    def _compute_liberty_planes(self, board: np.ndarray) -> np.ndarray:
+        """Compute 6 liberty planes from board position.
+
+        Planes:
+          0: own stones with exactly 1 liberty (atari)
+          1: own stones with exactly 2 liberties
+          2: own stones with 3+ liberties
+          3: opponent stones with exactly 1 liberty (atari)
+          4: opponent stones with exactly 2 liberties
+          5: opponent stones with 3+ liberties
+
+        board values: +1 = own stones, -1 = opponent stones, 0 = empty
+        """
+        planes = np.zeros((6, self.n2), dtype=np.float32)
+        visited = np.zeros(self.n2, dtype=np.int8)
+
+        for idx in range(self.n2):
+            if board[idx] == 0 or visited[idx]:
+                continue
+
+            color = board[idx]
+            group, lib_count = self._find_group(board, idx)
+
+            # Mark all stones in this group
+            for pos in group:
+                visited[pos] = 1
+
+            # Determine plane offset: 0-2 for own (+1), 3-5 for opponent (-1)
+            offset = 0 if color > 0 else 3
+            lib_idx = min(lib_count, 3) - 1  # 0=1lib, 1=2lib, 2=3+lib
+            if lib_idx < 0:
+                continue  # shouldn't happen (captured stones removed)
+
+            for pos in group:
+                planes[offset + lib_idx, pos] = 1.0
+
+        return planes
 
     def get_symmetries(self, state: np.ndarray, pi: np.ndarray) -> list[tuple[np.ndarray, np.ndarray]]:
         """8-fold symmetries (4 rotations x 2 reflections) applied to all 17 planes."""

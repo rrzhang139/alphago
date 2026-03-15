@@ -14,6 +14,7 @@ GAMES = {
     'othello10': lambda: Othello(size=10),
     'go': Go,
     'go9': lambda: Go(size=9),
+    'go9_ext': lambda: Go(size=9, use_liberty_planes=True),
     'go13': lambda: Go(size=13),
     'go19': lambda: Go(size=19),
 }
