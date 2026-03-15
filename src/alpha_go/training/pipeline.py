@@ -97,6 +97,8 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
             num_workers=num_workers,
             game_name=config.game,
             use_cpp=getattr(config, 'use_cpp_mcts', False),
+            score_value_weight=getattr(config.training, 'score_value_weight', 0.0),
+            score_value_scale=getattr(config.training, 'score_value_scale', 20.0),
         )
         if use_window:
             iteration_history.append(new_examples)

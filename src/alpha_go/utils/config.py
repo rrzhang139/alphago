@@ -155,6 +155,24 @@ class TrainingConfig:
     checkpoint_dir: str = "checkpoints"
     """Where to save model checkpoints."""
 
+    max_grad_norm: float = 0.0
+    """Maximum gradient norm for clipping. 0.0 = disabled. AlphaZero uses 1.0.
+    Prevents large gradients from noisy early self-play data from destabilizing training."""
+
+    value_loss_weight: float = 1.0
+    """Weight for value loss in total loss = policy_loss + weight * value_loss.
+    AlphaZero uses 1.0. Some implementations use 0.5 to avoid value head dominating early."""
+
+    score_value_weight: float = 0.0
+    """Blend weight for score-based value targets (KataGo-style).
+    0.0 = pure win/loss {-1, +1} (default, standard AlphaZero).
+    1.0 = pure score-based tanh(score/score_scale).
+    0.5 = blend 50% binary + 50% score. Only works for games with get_terminal_score()."""
+
+    score_value_scale: float = 20.0
+    """Scale for score-based value targets: target = tanh(score / scale).
+    For Go 9x9: typical scores range 0.5-30, scale=20 maps well to [-1,1]."""
+
 
 @dataclass
 class ArenaConfig:

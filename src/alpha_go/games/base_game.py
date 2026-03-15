@@ -82,6 +82,15 @@ class Game(ABC):
         (4 rotations x 2 reflections). Return at least [(state, pi)].
         """
 
+    def get_terminal_score(self, state: np.ndarray, player: int) -> float | None:
+        """Return the raw game score from player's perspective, or None if not supported.
+
+        Used for score-based value targets (KataGo-style). For Go, this returns
+        the Tromp-Taylor score. For games without scores (TTT, Connect4), returns None.
+        Score is in game-specific units (e.g., points for Go).
+        """
+        return None
+
     def display(self, state: np.ndarray) -> str:
         """Return a human-readable string representation of the board."""
         return str(state)

@@ -37,6 +37,8 @@ def self_play_game(
     model,
     mcts_config: MCTSConfig,
     collect_diagnostics: bool = False,
+    score_value_weight: float = 0.0,
+    score_value_scale: float = 20.0,
 ) -> tuple[list[tuple[np.ndarray, np.ndarray, float]], int, dict]:
     """Play one game of self-play, returning training examples, outcome, and diagnostics.
 
@@ -112,6 +114,13 @@ def self_play_game(
             else:
                 outcome = player if terminal_value > 0 else -player
 
+            # Compute score-based value target if enabled
+            score_target = None
+            if score_value_weight > 0:
+                raw_score = game.get_terminal_score(state, player)
+                if raw_score is not None:
+                    score_target = float(np.tanh(raw_score / score_value_scale))
+
             # Assign per-position values — only full-search positions if using playout cap
             examples = []
             for canonical_state, traj_player, traj_pi, traj_full in trajectory:
@@ -121,6 +130,12 @@ def self_play_game(
                     v = terminal_value
                 else:
                     v = -terminal_value
+
+                # Blend binary win/loss with score-based target
+                if score_target is not None:
+                    sv = score_target if traj_player == player else -score_target
+                    v = (1 - score_value_weight) * v + score_value_weight * sv
+
                 examples.append((canonical_state, traj_pi, v))
 
             game_diag = {}
@@ -160,6 +175,8 @@ def generate_self_play_data(
     num_workers: int = 1,
     game_name: str | None = None,
     use_cpp: bool = False,
+    score_value_weight: float = 0.0,
+    score_value_scale: float = 20.0,
 ) -> tuple[list[tuple[np.ndarray, np.ndarray, float]], SelfPlayStats]:
     """Generate training data from multiple self-play games.
 
@@ -185,7 +202,9 @@ def generate_self_play_data(
             num_workers=num_workers, game_name=game_name, augment=augment,
         )
 
-    return _generate_sequential(game, model, mcts_config, num_games, augment)
+    return _generate_sequential(game, model, mcts_config, num_games, augment,
+                                score_value_weight=score_value_weight,
+                                score_value_scale=score_value_scale)
 
 
 def _generate_sequential(
@@ -194,6 +213,8 @@ def _generate_sequential(
     mcts_config: MCTSConfig,
     num_games: int,
     augment: bool,
+    score_value_weight: float = 0.0,
+    score_value_scale: float = 20.0,
 ) -> tuple[list[tuple[np.ndarray, np.ndarray, float]], SelfPlayStats]:
     """Original sequential implementation."""
     all_examples = []
@@ -205,7 +226,9 @@ def _generate_sequential(
 
     for _ in range(num_games):
         examples, outcome, diag = self_play_game(
-            game, model, mcts_config, collect_diagnostics=True
+            game, model, mcts_config, collect_diagnostics=True,
+            score_value_weight=score_value_weight,
+            score_value_scale=score_value_scale,
         )
 
         if outcome == 1:

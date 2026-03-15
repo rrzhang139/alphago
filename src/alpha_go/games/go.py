@@ -345,6 +345,16 @@ class Go(Game):
 
         return True, value
 
+    def get_terminal_score(self, state: np.ndarray, player: int) -> float | None:
+        """Return Tromp-Taylor score from player's perspective.
+
+        Positive = player is winning. Returns raw point difference.
+        """
+        board = self._get_current_board(state)
+        score = self._tromp_taylor_score(board)
+        # score > 0 means P1 wins. From player's perspective:
+        return score * player
+
     def _tromp_taylor_score(self, board: np.ndarray) -> float:
         """Tromp-Taylor area scoring: stones + territory - komi.
 

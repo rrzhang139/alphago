@@ -90,6 +90,10 @@ def parse_args():
                    help='Self-play games generated per iteration (default: 100)')
     t.add_argument('--checkpoint-dir', type=str, default='checkpoints',
                    help='Directory for model checkpoints and plots (default: checkpoints)')
+    t.add_argument('--max-grad-norm', type=float, default=0.0,
+                   help='Max gradient norm for clipping. 0=disabled. AlphaZero uses 1.0 (default: 0.0)')
+    t.add_argument('--value-loss-weight', type=float, default=1.0,
+                   help='Weight for value loss in total_loss = policy + w*value (default: 1.0)')
 
     # Arena
     a = parser.add_argument_group('arena', 'Model evaluation')
@@ -143,6 +147,8 @@ def main():
             num_iterations=args.num_iterations,
             games_per_iteration=args.games_per_iteration,
             checkpoint_dir=args.checkpoint_dir,
+            max_grad_norm=args.max_grad_norm,
+            value_loss_weight=args.value_loss_weight,
         ),
         arena=ArenaConfig(
             arena_games=args.arena_games,
@@ -164,7 +170,12 @@ def main():
         game = Go(size=args.board_size)
     else:
         game = get_game(config.game)
-    model = create_model(game, config.network, lr=config.training.lr)
+    model = create_model(
+        game, config.network, lr=config.training.lr,
+        weight_decay=getattr(config.training, 'weight_decay', 0.0),
+        max_grad_norm=getattr(config.training, 'max_grad_norm', 0.0),
+        value_loss_weight=getattr(config.training, 'value_loss_weight', 1.0),
+    )
 
     # Run — pipeline handles all logging
     history = run_pipeline(game, model, config)
