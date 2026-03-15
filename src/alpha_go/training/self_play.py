@@ -73,6 +73,24 @@ def self_play_game(
     policy_entropies = []
     search_depths = []
 
+    # Random opening moves (KataGo-style opening randomization)
+    random_opening = getattr(mcts_config, '_random_opening_moves', 0)
+    if random_opening > 0:
+        for _ in range(random_opening):
+            valid = game.get_valid_moves(state, player)
+            valid_actions = np.where(valid)[0]
+            # Exclude pass from random opening moves
+            valid_actions = valid_actions[valid_actions != game.action_size - 1]
+            if len(valid_actions) == 0:
+                break
+            action = int(np.random.choice(valid_actions))
+            state = game.get_next_state(state, action, player)
+            is_terminal, _ = game.check_terminal(state, action, player)
+            if is_terminal:
+                break
+            player = -player
+            move_count += 1
+
     while True:
         canonical = game.get_canonical_state(state, player)
 

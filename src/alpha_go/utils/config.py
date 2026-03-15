@@ -213,6 +213,13 @@ class TrainingConfig:
     """If True, resume training from the latest checkpoint in checkpoint_dir.
     Loads model, optimizer state, replay buffer, and history."""
 
+    random_opening_moves: int = 0
+    """Number of random legal moves at the start of each self-play game.
+    KataGo uses this to force diverse openings and prevent the model from
+    collapsing to a narrow set of opening patterns. 0 = disabled.
+    Recommended: 4-8 for Go 9x9 in early training. Positions from random
+    moves are NOT added to training data (only positions after MCTS begins)."""
+
 
 @dataclass
 class ArenaConfig:

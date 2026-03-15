@@ -113,6 +113,10 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
             mcts_config = replace(config.mcts, num_simulations=current_sims)
         collect_ownership = getattr(config.network, 'use_ownership_head', False)
         use_cpp = getattr(config, 'use_cpp_mcts', False)
+        # Pass random opening moves config to MCTS (KataGo-style opening randomization)
+        random_opening = getattr(config.training, 'random_opening_moves', 0)
+        if random_opening > 0:
+            mcts_config._random_opening_moves = random_opening
         new_examples, sp_stats = generate_self_play_data(
             game=game,
             model=best_model,
