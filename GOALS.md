@@ -54,9 +54,17 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
   - Liberty planes input features — 6 extra planes encoding group health
   - Checkpoint/resume for crash recovery
   - Iteration-numbered snapshots + W&B artifact uploads
-  - Ownership prediction head (KataGo's biggest improvement, ~1.65x) — full pipeline ready
+  - Ownership prediction head (KataGo's biggest improvement, ~1.65x) — full pipeline including C++ MCTS support
   - nn_batch_size=8 optimal for C++ engine (infra agent finding, 10x faster than 64)
   - create_model_from_config helper for cleaner experiment scripts
+  - C++ ownership map collection — ownership experiment can use fast C++ MCTS path natively
+  - eval_checkpoints.py with --config-json auto-detection of architecture
+- **Additional GPU experiments queued**:
+  - `kitchen_sink`: ALL improvements combined (liberty+PSW+shaped_dirichlet+playout_cap), 300 iters
+  - `ownership`: Kitchen sink + ownership head, 300 iters
+- **Local experiment results (March 15)**:
+  - C++ MCTS 20 iters: loss 4.52→2.71, model learning but still weak at 20 iters (~40% vsRandom)
+  - BS=64 vs BS=256: Testing (BS=64 done: loss 4.41→1.59 in 10 iters, excellent)
 - **Key insight**: 100 iters is far too few for Go 9x9. Policy loss 2.80 is still very high (random is 4.4). Need 500+ iterations minimum. Also consider: dirichlet_alpha=0.03 (standard for Go) instead of 0.12.
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
