@@ -260,7 +260,20 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
                 'time/eval': t_eval,
             })
 
-        # Periodic checkpoint
+        # Save iteration-numbered snapshot for later evaluation
+        if checkpoint_interval > 0 and iteration % checkpoint_interval == 0:
+            snap_path = os.path.join(config.training.checkpoint_dir, f'iter_{iteration:04d}.pt')
+            best_model.save(snap_path)
+
+            # Upload snapshot to W&B as artifact (crash-safe weight storage)
+            if run:
+                import wandb
+                artifact_name = f"{config.game}-iter{iteration:04d}"
+                artifact = wandb.Artifact(artifact_name, type='model')
+                artifact.add_file(snap_path, name=f'iter_{iteration:04d}.pt')
+                run.log_artifact(artifact)
+
+        # Periodic checkpoint (for crash recovery)
         if checkpoint_interval > 0 and iteration % checkpoint_interval == 0:
             _save_checkpoint(
                 model=best_model,
@@ -281,9 +294,17 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
     # Generate plots
     plot_path = save_training_plots(history, fig_dir)
 
-    # Upload final plots to wandb
+    # Upload final model + plots to wandb
     if run:
         import wandb
+        final_path = os.path.join(config.training.checkpoint_dir, 'final.pt')
+        if os.path.exists(final_path):
+            artifact = wandb.Artifact(f"{config.game}-final", type='model')
+            artifact.add_file(final_path, name='final.pt')
+            best_path = os.path.join(config.training.checkpoint_dir, 'best.pt')
+            if os.path.exists(best_path):
+                artifact.add_file(best_path, name='best.pt')
+            run.log_artifact(artifact)
         if plot_path and os.path.exists(plot_path):
             wandb.log({'training_curves': wandb.Image(plot_path)})
         run.finish()
