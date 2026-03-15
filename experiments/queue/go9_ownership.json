@@ -1,0 +1,12 @@
+{
+  "name": "go9_ownership",
+  "priority": "low",
+  "depends_on": "go9_kitchen_sink",
+  "hypothesis": "Adding auxiliary ownership prediction (KataGo's biggest improvement, ~1.65x) on top of all other improvements should significantly boost training efficiency. Ownership gives 361 bits of learning signal per game vs just 1 bit from win/loss.",
+  "run_script": "experiments/20260314_go9_ownership/run.py",
+  "gpu": "A5000",
+  "estimated_time": "8h (300 iters, ownership adds ~10% compute)",
+  "requested_at": "2026-03-14T20:00:00Z",
+  "success_criteria": "Loss < 1.0 by iter 150 AND ownership_loss < 0.5 by iter 100. Compare directly against kitchen_sink (same but without ownership).",
+  "notes": "Requires latest code (commit 1d26d67+). First experiment with ownership head. use_ownership_head=True in NetworkConfig, collect_ownership=True in self-play. Ownership loss weight=0.02 (KataGo uses 1.5/b² ≈ 0.019)."
+}
