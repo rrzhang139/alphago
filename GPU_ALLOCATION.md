@@ -36,7 +36,7 @@ Disk: 20GB volume sufficient
 | **VRAM** | ~930 MiB | Slightly more params (1.88M vs ~1.2M) but same VRAM class |
 | **CPU** | Same as standard | MCTS still dominates |
 | **RAM** | ~2 GiB | Same |
-| **Iter time** | 45-52s (Xeon E5-2699) | ~40% slower than standard CNN due to larger model |
+| **Iter time** | 45-66s (Xeon E5-2699), grows with buffer | ~40-60% slower than standard CNN. Window buffer slows training as it fills. |
 
 ### Recommended: Same as standard. SE blocks don't need more GPU.
 
@@ -82,4 +82,4 @@ With nn_batch_size=8, GPU batching is efficient but GPU sits idle 75-80% of the 
 | scale500 (FAILED) | A4000 | Xeon E5-2650 | 1/500 | 4h+ | $0.75 wasted | — |
 | scale500 v2 | A5000 | Threadripper | 500 | 3.6h | $0.58 | 1.60 |
 | fresh_correct | A5000 | Xeon E5-2699 | 300 | 3.1h | $0.50 | 1.64 |
-| se_globalpool | A5000 | Xeon E5-2699 | 200 | ~2.9h (est) | ~$0.46 | TBD |
+| se_globalpool | A5000 | Xeon E5-2699 | 200 | 3.4h | $0.54 | **1.389** |

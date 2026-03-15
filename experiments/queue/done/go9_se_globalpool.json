@@ -1,0 +1,18 @@
+{
+  "name": "go9_se_globalpool",
+  "priority": "medium",
+  "hypothesis": "SE blocks (channel attention) + global pooling in value head + 6 res blocks gives better feature quality and spatial awareness. KataGo and Leela Zero both use SE blocks.",
+  "run_script": "experiments/20260314_go9_se_globalpool/run.py",
+  "gpu": "A4000",
+  "estimated_time": "15h",
+  "requested_at": "2026-03-14T10:00:00Z",
+  "success_criteria": ">60% vs random by iter 100, loss monotonically decreasing. Compare to scale500 at same iteration count.",
+  "notes": "From scratch (different architecture than Fix D). 200 iters, 100 games/iter (tuned). 1.88M params, SE blocks + deeper net.",
+  "completed_at": "2026-03-15T18:30:00Z",
+  "status": "success",
+  "wall_time": "3.4h",
+  "cost": "$0.54",
+  "best_loss": 1.389,
+  "results_dir": "experiments/20260314_go9_se_globalpool/data/checkpoints/",
+  "summary": "200 iters completed. Loss 4.92→1.389 (best). BEST LOSS of all experiments: 1.389 vs fresh_correct 1.639 vs scale500 1.605. SE blocks + global pool + 6 res blocks clearly better architecture. 204.9m on A5000 (Xeon E5-2699). Iter time 45-66s (slower than 4-block CNN due to larger model + window buffer growth). vsRandom not tested during training."
+}
