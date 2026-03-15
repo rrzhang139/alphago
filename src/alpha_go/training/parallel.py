@@ -98,7 +98,8 @@ class BatchInferenceModel:
 
 
 def _threaded_self_play_worker(game_name: str, batch_model: BatchInferenceModel,
-                                mcts_config, num_games: int):
+                                mcts_config, num_games: int,
+                                collect_ownership: bool = False):
     """Thread worker: play self-play games using batched GPU model."""
     from ..games import get_game
     from .self_play import self_play_game
@@ -108,7 +109,8 @@ def _threaded_self_play_worker(game_name: str, batch_model: BatchInferenceModel,
 
     for _ in range(num_games):
         examples, outcome, diag = self_play_game(
-            game, batch_model, mcts_config, collect_diagnostics=True
+            game, batch_model, mcts_config, collect_diagnostics=True,
+            collect_ownership=collect_ownership,
         )
         results.append((examples, outcome, diag))
 
@@ -117,7 +119,8 @@ def _threaded_self_play_worker(game_name: str, batch_model: BatchInferenceModel,
 
 def generate_gpu_parallel_self_play(game, model, mcts_config, num_games: int,
                                      num_workers: int, game_name: str,
-                                     augment: bool = True):
+                                     augment: bool = True,
+                                     collect_ownership: bool = False):
     """Generate self-play data: threaded workers + batched GPU inference.
 
     Workers run MCTS game logic in threads. A background thread batches
@@ -152,6 +155,7 @@ def generate_gpu_parallel_self_play(game, model, mcts_config, num_games: int,
                 f = executor.submit(
                     _threaded_self_play_worker,
                     game_name, batch_model, mcts_config, games_per_worker[i],
+                    collect_ownership=collect_ownership,
                 )
                 futures.append(f)
 

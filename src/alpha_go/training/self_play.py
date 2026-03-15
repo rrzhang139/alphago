@@ -224,6 +224,7 @@ def generate_self_play_data(
     use_cpp: bool = False,
     score_value_weight: float = 0.0,
     score_value_scale: float = 20.0,
+    collect_ownership: bool = False,
 ) -> tuple[list[tuple[np.ndarray, np.ndarray, float]], SelfPlayStats]:
     """Generate training data from multiple self-play games.
 
@@ -247,11 +248,13 @@ def generate_self_play_data(
         return generate_gpu_parallel_self_play(
             game, model, mcts_config, num_games,
             num_workers=num_workers, game_name=game_name, augment=augment,
+            collect_ownership=collect_ownership,
         )
 
     return _generate_sequential(game, model, mcts_config, num_games, augment,
                                 score_value_weight=score_value_weight,
-                                score_value_scale=score_value_scale)
+                                score_value_scale=score_value_scale,
+                                collect_ownership=collect_ownership)
 
 
 def _generate_sequential(
@@ -262,6 +265,7 @@ def _generate_sequential(
     augment: bool,
     score_value_weight: float = 0.0,
     score_value_scale: float = 20.0,
+    collect_ownership: bool = False,
 ) -> tuple[list[tuple[np.ndarray, np.ndarray, float]], SelfPlayStats]:
     """Original sequential implementation."""
     all_examples = []
@@ -276,6 +280,7 @@ def _generate_sequential(
             game, model, mcts_config, collect_diagnostics=True,
             score_value_weight=score_value_weight,
             score_value_scale=score_value_scale,
+            collect_ownership=collect_ownership,
         )
 
         if outcome == 1:

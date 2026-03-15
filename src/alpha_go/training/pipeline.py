@@ -111,6 +111,7 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
             min_s = getattr(config.mcts, 'min_sims', 50)
             current_sims = int(min_s + progress * (config.mcts.num_simulations - min_s))
             mcts_config = replace(config.mcts, num_simulations=current_sims)
+        collect_ownership = getattr(config.network, 'use_ownership_head', False)
         new_examples, sp_stats = generate_self_play_data(
             game=game,
             model=best_model,
@@ -122,6 +123,7 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
             use_cpp=getattr(config, 'use_cpp_mcts', False),
             score_value_weight=getattr(config.training, 'score_value_weight', 0.0),
             score_value_scale=getattr(config.training, 'score_value_scale', 20.0),
+            collect_ownership=collect_ownership,
         )
         if use_window:
             iteration_history.append(new_examples)
@@ -205,6 +207,10 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
         history['total_loss'].append(losses['total_loss'])
         history['policy_loss'].append(losses['policy_loss'])
         history['value_loss'].append(losses['value_loss'])
+        if 'ownership_loss' in losses:
+            if 'ownership_loss' not in history:
+                history['ownership_loss'] = []
+            history['ownership_loss'].append(losses['ownership_loss'])
         history['arena_win_rate'].append(win_rate)
         history['vs_random_win_rate'].append(vs_random)
         history['model_accepted'].append(accepted)
@@ -231,7 +237,7 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
         # Log to wandb
         if run:
             import wandb
-            wandb.log({
+            log_dict = {
                 # Training loss
                 'loss/total': losses['total_loss'],
                 'loss/policy': losses['policy_loss'],
@@ -262,7 +268,11 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
                 'time/train': t_train,
                 'time/arena': t_arena,
                 'time/eval': t_eval,
-            })
+            }
+            # Add ownership loss if present
+            if 'ownership_loss' in losses:
+                log_dict['loss/ownership'] = losses['ownership_loss']
+            wandb.log(log_dict)
 
         # Save iteration-numbered snapshot for later evaluation
         if checkpoint_interval > 0 and iteration % checkpoint_interval == 0:
