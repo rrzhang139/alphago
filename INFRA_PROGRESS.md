@@ -22,6 +22,7 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | 2026-03-14 | **go9_fresh_correct COMPLETED** (300/300 iters) | Loss 4.92→1.639 (best). 3.1h on A5000 (Xeon). | **$0.50 total** | **Outperformed scale500**: loss 1.70 by iter 128 vs scale500's 1.75 at iter 385. Correct alpha=0.03 > warm-start. |
 | 2026-03-14 | **Launched go9_se_globalpool** on existing pod `40nhl0indqjuza` | Reusing Xeon pod. 200 iters, SE blocks + global pool, from scratch. | $0.16/hr | Next medium-priority experiment (no dependencies). |
 | 2026-03-15 | **go9_se_globalpool COMPLETED** (200/200 iters) | Loss 4.92→**1.389** (best). 3.4h on A5000 (Xeon). 1.88M params. | **$0.54 total** | **BEST LOSS** of all experiments. SE+globalpool architecture clearly superior. |
+| 2026-03-15 | **go9_kitchen_sink COMPLETED** (300/300 iters) | Loss 4.49→**1.564** (best). 3.2h on A5000 (Xeon). Liberty planes + shaped Dirichlet + PSW=0.5. | **$0.51 total** | Plateau at ~1.80 from iter 18-100, then slow descent. Worse than se_globalpool (1.389). SE architecture > KataGo training tricks. |
 
 ## Infra Learnings
 
@@ -45,6 +46,6 @@ Pod management, experiment execution, cost tracking, and infra learnings. **Infr
 | `go9_scale500` | high | **DONE** ✓ Loss 1.60, 3.6h, $0.58 | none |
 | `go9_fresh_correct` | high | **DONE** ✓ Loss 1.639, 3.1h, $0.50 | none |
 | `go9_se_globalpool` | medium | **DONE** ✓ Loss **1.389**, 3.4h, $0.54 — BEST | none |
-| `go9_kitchen_sink` | medium | **RUNNING** (pod `40nhl0indqjuza`, iter 25/300) | go9_scale500 ✓ |
-| `go9_liberty_planes` | medium | UNBLOCKED — needs pod | go9_fresh_correct ✓ |
-| `go9_ownership` | low | QUEUED | go9_kitchen_sink |
+| `go9_kitchen_sink` | medium | **DONE** ✓ Loss 1.564, 3.2h, $0.51 | go9_scale500 ✓ |
+| `go9_liberty_planes` | medium | UNBLOCKED — pod available | go9_fresh_correct ✓ |
+| `go9_ownership` | low | UNBLOCKED | go9_kitchen_sink ✓ |

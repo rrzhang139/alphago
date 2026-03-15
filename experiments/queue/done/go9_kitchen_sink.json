@@ -1,0 +1,19 @@
+{
+  "name": "go9_kitchen_sink",
+  "priority": "medium",
+  "depends_on": "go9_scale500",
+  "hypothesis": "Combining ALL proven improvements (liberty planes, shaped Dirichlet, PSW, correct params) from scratch should train faster and stronger than any single improvement alone. KataGo found each technique gives ~10-50% training efficiency boost, and they stack multiplicatively.",
+  "run_script": "experiments/20260314_go9_kitchen_sink/run.py",
+  "gpu": "A5000",
+  "estimated_time": "6h (300 iters × ~70s/iter)",
+  "requested_at": "2026-03-14T16:00:00Z",
+  "success_criteria": "Loss < 1.5 by iter 100, < 1.0 by iter 200. Eval checkpoints against GnuGo L1 after training.",
+  "notes": "Uses nn_batch=8 (proven optimal for C++ engine). Liberty planes require latest C++ build (commit dfd5001+). FROM SCRATCH - compare directly against fresh_correct (same but without liberty+shaped_dirichlet+PSW) to measure combined benefit.",
+  "completed_at": "2026-03-15T22:30:00Z",
+  "status": "success",
+  "wall_time": "3.2h",
+  "cost": "$0.51",
+  "best_loss": 1.564,
+  "results_dir": "experiments/20260314_go9_kitchen_sink/data/checkpoints/",
+  "summary": "300 iters completed. Loss 4.49→1.564 (best). Rapid initial descent to 1.80 by iter 18, then plateau 1.80-1.93 for ~80 iters (iters 18-100), slow descent to 1.56 by iter 300. DID NOT meet success criteria (loss 1.80 at iter 100, target was <1.5). Worse than se_globalpool (1.389) despite more KataGo tricks. SE blocks + global pool architecture matters more than input/training improvements. Iter time 27-43s (window buffer growth). Pod 40nhl0indqjuza (A5000, Xeon E5-2699)."
+}
