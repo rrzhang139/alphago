@@ -64,7 +64,12 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
   - `ownership`: Kitchen sink + ownership head, 300 iters
 - **Local experiment results (March 15)**:
   - C++ MCTS 20 iters: loss 4.52→2.71, model learning but still weak at 20 iters (~40% vsRandom)
-  - BS=64 vs BS=256: Testing (BS=64 done: loss 4.41→1.59 in 10 iters, excellent)
+  - **BS=256 confirmed optimal**: 13% lower loss than BS=64 (1.378 vs 1.588)
+  - **Policy target pruning (KataGo, thresh=0.03)**: +6% vsRandom (73% vs 67%), 9.3% lower loss
+  - Playout cap: equal quality at 4-5x game speed (needs 100+ games/iter)
+  - Kitchen sink (all features): slower locally but expected to help at GPU scale
+  - Progressive sims (25→100): 43% faster, 3.2% worse loss (neutral)
+  - Global pool value added to kitchen_sink, ownership, liberty experiments
 - **Key insight**: 100 iters is far too few for Go 9x9. Policy loss 2.80 is still very high (random is 4.4). Need 500+ iterations minimum. Also consider: dirichlet_alpha=0.03 (standard for Go) instead of 0.12.
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
