@@ -95,6 +95,17 @@ def self_play_game(
 
         do_diag = collect_diagnostics and is_full
         pi, diag = mcts.search(state, player, collect_diagnostics=do_diag)
+
+        # Policy target pruning (KataGo): remove low-visit moves for cleaner training targets
+        prune_thresh = getattr(mcts_config, 'policy_target_pruning', 0.0)
+        if prune_thresh > 0 and is_full:
+            mask = pi >= prune_thresh
+            if mask.any():
+                pi = pi * mask
+                pi_sum = pi.sum()
+                if pi_sum > 0:
+                    pi = pi / pi_sum
+
         trajectory.append((canonical.copy(), player, pi.copy(), is_full))
 
         if diag is not None:

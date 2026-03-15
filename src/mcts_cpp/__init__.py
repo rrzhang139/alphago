@@ -117,11 +117,23 @@ def generate_self_play_data(game, model, mcts_config: PyMCTSConfig,
     all_examples = []
     has_ownership = collect_ownership and len(examples_cpp) > 0 and examples_cpp[0].has_ownership()
 
+    # Policy target pruning threshold
+    prune_thresh = getattr(mcts_config, 'policy_target_pruning', 0.0)
+
     for ex in examples_cpp:
         state = np.array(ex.get_state(), dtype=np.float32)
         policy = np.array(ex.get_policy(), dtype=np.float32)
         value = ex.value
         ownership = np.array(ex.get_ownership(), dtype=np.float32) if has_ownership else None
+
+        # Apply policy target pruning (KataGo)
+        if prune_thresh > 0:
+            mask = policy >= prune_thresh
+            if mask.any():
+                policy = policy * mask
+                ps = policy.sum()
+                if ps > 0:
+                    policy = policy / ps
 
         if augment:
             if has_ownership:

@@ -46,6 +46,7 @@ def main():
             fpu_reduction=0.2,
             root_fpu_reduction=0.1,
             coordinator_wait_us=25,
+            policy_target_pruning=0.03,  # KataGo: prune <3% visit moves from target
         ),
         network=NetworkConfig(
             network_type="cnn",

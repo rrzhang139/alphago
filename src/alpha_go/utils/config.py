@@ -78,6 +78,13 @@ class MCTSConfig:
     """Microseconds the BatchInferenceCoordinator sleeps to accumulate requests before firing a mega-batch.
     Higher = bigger batches (better GPU throughput) but more latency per request. 0 = no wait."""
 
+    policy_target_pruning: float = 0.0
+    """Policy target pruning threshold (KataGo, 1.25x efficiency).
+    Remove actions from the policy target whose visit fraction is below this threshold.
+    0.0 = disabled (keep all visits in target). KataGo uses ~0.02.
+    Decouples training target from MCTS dynamics: low-visit moves from exploration noise
+    are pruned to create cleaner training signals."""
+
     progressive_sims: bool = False
     """Scale num_simulations linearly from min_sims to num_simulations across training.
     First iteration uses min_sims; last uses num_simulations. More games early, better search later."""
