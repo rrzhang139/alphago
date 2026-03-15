@@ -23,7 +23,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from alpha_go.games.go import Go
-from alpha_go.neural_net import create_model
+from alpha_go.neural_net import create_model_from_config
 from alpha_go.utils.config import (
     AlphaZeroConfig, MCTSConfig, NetworkConfig, TrainingConfig, ArenaConfig,
 )
@@ -85,9 +85,7 @@ def main():
     with open(os.path.join(EXPERIMENT_DIR, 'config.json'), 'w') as f:
         json.dump(asdict(config), f, indent=2)
 
-    model = create_model(game, config.network, lr=config.training.lr,
-                         weight_decay=config.training.weight_decay,
-                         policy_surprise_weight=config.training.policy_surprise_weight)
+    model = create_model_from_config(game, config)
     print(f"Device: {model.net.device}")
     print(f"Input: {game.get_board_shape()} = {game.num_planes} planes "
           f"({'17 base + 6 liberty' if game.use_liberty_planes else '17 base'})")

@@ -100,6 +100,13 @@ class ConvNet(nn.Module):
         self.value_fc1 = nn.Linear(value_input_size, 64)
         self.value_fc2 = nn.Linear(64, 1)
 
+        # Ownership head (KataGo auxiliary target: per-intersection ownership prediction)
+        self.use_ownership = getattr(config, 'use_ownership_head', False)
+        if self.use_ownership:
+            self.ownership_conv = nn.Conv2d(nf, 1, 1, bias=not use_bn)
+            self.ownership_bn = nn.BatchNorm2d(1) if use_bn else nn.Identity()
+            # Output is (B, rows*cols) — per-intersection ownership in [-1, 1]
+
         # Dropout (applied in policy and value heads)
         self.dropout = nn.Dropout(config.dropout) if config.dropout > 0 else nn.Identity()
 
@@ -119,6 +126,7 @@ class ConvNet(nn.Module):
 
         Returns:
             (log_policy, value): log_policy shape (B, action_size), value shape (B, 1).
+            If use_ownership_head: also accessible via forward_with_ownership().
         """
         # Reshape flat input to (B, C, rows, cols)
         h = x.view(-1, self.in_channels, self.rows, self.cols)
@@ -150,6 +158,43 @@ class ConvNet(nn.Module):
         v = torch.tanh(self.value_fc2(v))
 
         return log_pi, v
+
+    def forward_with_ownership(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forward pass including ownership prediction.
+
+        Returns:
+            (log_policy, value, ownership): ownership shape (B, rows*cols) in [-1, 1].
+        """
+        h = x.view(-1, self.in_channels, self.rows, self.cols)
+        h = F.relu(self.initial_bn(self.initial_conv(h)))
+        h = self.res_blocks(h)
+
+        # Policy head
+        p = F.relu(self.policy_bn(self.policy_conv(h)))
+        p = p.view(p.size(0), -1)
+        p = self.dropout(p)
+        log_pi = F.log_softmax(self.policy_fc(p), dim=1)
+
+        # Value head
+        v_spatial = F.relu(self.value_bn(self.value_conv(h)))
+        v_spatial = v_spatial.view(v_spatial.size(0), -1)
+        if self.global_pool_value:
+            v_avg = h.mean(dim=(2, 3))
+            v_max = h.amax(dim=(2, 3))
+            v = torch.cat([v_spatial, v_avg, v_max], dim=1)
+        else:
+            v = v_spatial
+        v = self.dropout(v)
+        v = F.relu(self.value_fc1(v))
+        v = self.dropout(v)
+        v = torch.tanh(self.value_fc2(v))
+
+        # Ownership head — per-intersection prediction
+        o = self.ownership_bn(self.ownership_conv(h))
+        o = torch.tanh(o)  # output in [-1, 1]
+        o = o.view(o.size(0), -1)  # (B, rows*cols)
+
+        return log_pi, v, o
 
 
 class ConvNetWrapper:

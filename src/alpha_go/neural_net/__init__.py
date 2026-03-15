@@ -44,3 +44,23 @@ def create_model(game, config: NetworkConfig, lr: float = 0.001, weight_decay: f
     model._value_loss_weight = value_loss_weight
     model._policy_surprise_weight = policy_surprise_weight
     return model
+
+
+def create_model_from_config(game, config):
+    """Create model from AlphaZeroConfig, pulling all training parameters automatically.
+
+    Args:
+        game: Game instance.
+        config: AlphaZeroConfig (top-level config with network + training sub-configs).
+
+    Returns:
+        Model wrapper with all training parameters set.
+    """
+    return create_model(
+        game, config.network,
+        lr=config.training.lr,
+        weight_decay=getattr(config.training, 'weight_decay', 0.0),
+        max_grad_norm=getattr(config.training, 'max_grad_norm', 0.0),
+        value_loss_weight=getattr(config.training, 'value_loss_weight', 1.0),
+        policy_surprise_weight=getattr(config.training, 'policy_surprise_weight', 0.0),
+    )

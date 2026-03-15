@@ -120,6 +120,11 @@ class NetworkConfig:
     """Use Squeeze-and-Excitation blocks in residual tower (Leela Zero, KataGo).
     Adds channel-wise attention with ~2% more parameters. Improves feature quality."""
 
+    use_ownership_head: bool = False
+    """Add auxiliary ownership prediction head (KataGo). Predicts which player owns
+    each intersection at game end. Biggest single training efficiency improvement
+    (~1.65x) from KataGo. Requires ownership targets in training data."""
+
 
 @dataclass
 class TrainingConfig:
@@ -182,6 +187,10 @@ class TrainingConfig:
     score_value_scale: float = 20.0
     """Scale for score-based value targets: target = tanh(score / scale).
     For Go 9x9: typical scores range 0.5-30, scale=20 maps well to [-1,1]."""
+
+    ownership_loss_weight: float = 0.02
+    """Weight for auxiliary ownership loss. KataGo uses 1.5/b² ≈ 0.019 for 9x9.
+    0.0 = disabled. Only used when network has use_ownership_head=True."""
 
     policy_surprise_weight: float = 0.0
     """Policy surprise weighting (KataGo). Upweight training samples where MCTS
