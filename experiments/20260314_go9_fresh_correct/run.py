@@ -46,7 +46,7 @@ def main():
             dirichlet_epsilon=0.25,
             temp_threshold=30,
             temp_decay_halflife=19,
-            nn_batch_size=64,
+            nn_batch_size=8,  # Optimal for C++ engine (infra agent found 64 is too large)
             playout_cap_prob=0.125,
             playout_cap_cheap_fraction=0.15,
             fpu_reduction=0.2,
@@ -64,7 +64,7 @@ def main():
             batch_size=256,
             epochs_per_iteration=5,
             num_iterations=300,              # 300 iters from scratch
-            games_per_iteration=500,
+            games_per_iteration=100,  # Tuned for A5000+Threadripper (500 was too slow)
             max_buffer_size=200000,
             buffer_strategy="window",
             buffer_window=10,
@@ -72,7 +72,7 @@ def main():
             checkpoint_interval=25,
             resume_from_checkpoint=True,     # Auto-resume on crash
         ),
-        arena=ArenaConfig(arena_games=0, eval_games=20),
+        arena=ArenaConfig(arena_games=0, eval_games=0),  # Eval separately (saves 4 min/iter)
         num_workers=10,
         use_cpp_mcts=True,
         use_wandb=True,

@@ -63,6 +63,8 @@ def main():
                         help="Output JSON file for results")
     parser.add_argument("--also-best", action="store_true",
                         help="Also evaluate best.pt and final.pt")
+    parser.add_argument("--liberty-planes", action="store_true",
+                        help="Use liberty planes (23 input planes instead of 17)")
     args = parser.parse_args()
 
     # Find checkpoints
@@ -83,7 +85,7 @@ def main():
         print(f"  {label}: {path}")
 
     # Setup
-    game = Go(size=args.board_size)
+    game = Go(size=args.board_size, use_liberty_planes=args.liberty_planes)
     net_config = NetworkConfig(
         network_type="cnn",
         num_filters=args.num_filters,

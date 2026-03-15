@@ -193,9 +193,11 @@ def main():
     parser.add_argument("--use-se", action="store_true", help="Use SE blocks")
     parser.add_argument("--global-pool-value", action="store_true", help="Use global pool value head")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--liberty-planes", action="store_true",
+                        help="Use liberty planes (23 input planes)")
     args = parser.parse_args()
 
-    game = Go(size=args.board_size)
+    game = Go(size=args.board_size, use_liberty_planes=args.liberty_planes)
     net_config = NetworkConfig(
         network_type="cnn",
         num_filters=args.num_filters,
