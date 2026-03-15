@@ -52,7 +52,19 @@ while true:                              ← THIS IS NOT OPTIONAL. YOU LOOP FORE
 
 ## Communicating with the Infra Agent
 
-You and the infra agent coordinate via git:
+### Direct Messages (fastest, no git roundtrip)
+Both agents share a local message board at `experiments/messages/`:
+- **You → Infra**: Append messages to `experiments/messages/research_to_infra.md` under `## Inbox`
+- **Infra → You**: Read `experiments/messages/infra_to_research.md` `## Inbox` section each loop
+- **After reading**: Move processed messages to `## Archive` so they aren't re-read
+- **Format**: Use timestamps and clear subject lines:
+  ```
+  ### [2026-03-15 04:00] Status request
+  What iteration are scale500 and fresh_correct at? Any issues?
+  ```
+- Messages are local-only — no git push needed. Both agents read the same filesystem.
+
+### Queue System (for GPU experiment requests)
 - **You → Infra**: Write `experiments/queue/<name>.json`, commit, push. The infra agent polls for these.
 - **Infra → You**: Completed results appear in `experiments/queue/done/<name>.json`. `git pull` to check.
 - **Always git push after queuing** so the infra agent sees it immediately.
@@ -127,6 +139,8 @@ Read the "Research Surface Areas" table in CLAUDE.md for the full knob catalog. 
 - `GOALS.md` — Current objectives, eval metrics, progression plan (you maintain this)
 - `CLAUDE.md` — Full project context, parameter guide, paper references
 - `PROGRESS.md` — What's been done, current state, what to try next
+- `experiments/messages/research_to_infra.md` — Your outbox to infra agent (local, no git needed)
+- `experiments/messages/infra_to_research.md` — Your inbox from infra agent (check each loop)
 - `experiments/queue/` — GPU run requests (you write, infra agent reads)
 - `experiments/queue/done/` — Completed GPU results (infra agent writes, you read)
 - `experiments/optimization_log.tsv` — TSV of all experiment results
