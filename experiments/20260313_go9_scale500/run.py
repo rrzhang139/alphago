@@ -33,7 +33,7 @@ def main():
         seed=42,
         mcts=MCTSConfig(
             num_simulations=200,
-            c_puct=1.0,
+            c_puct=1.5,             # Proven better than 1.0 in playout_cap experiment
             dirichlet_alpha=0.03,  # Standard for Go (was 0.12, too diffuse for 82 actions)
             dirichlet_epsilon=0.25,
             temp_threshold=30,
