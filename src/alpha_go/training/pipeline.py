@@ -112,12 +112,7 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
             current_sims = int(min_s + progress * (config.mcts.num_simulations - min_s))
             mcts_config = replace(config.mcts, num_simulations=current_sims)
         collect_ownership = getattr(config.network, 'use_ownership_head', False)
-        # C++ MCTS doesn't support ownership collection — fall back to Python
         use_cpp = getattr(config, 'use_cpp_mcts', False)
-        if use_cpp and collect_ownership:
-            if iteration == start_iter:
-                print("  [Note: C++ MCTS doesn't support ownership. Using Python MCTS.]")
-            use_cpp = False
         new_examples, sp_stats = generate_self_play_data(
             game=game,
             model=best_model,

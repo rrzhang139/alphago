@@ -119,6 +119,15 @@ NB_MODULE(_mcts_cpp, m) {
             float* data = new float[n];
             std::memcpy(data, ex.policy.data(), n * sizeof(float));
             return make_numpy_1d(data, n);
+        })
+        .def("has_ownership", [](const Example& ex) {
+            return !ex.ownership.empty();
+        })
+        .def("get_ownership", [](const Example& ex) {
+            size_t n = ex.ownership.size();
+            float* data = new float[n];
+            std::memcpy(data, ex.ownership.data(), n * sizeof(float));
+            return make_numpy_1d(data, n);
         });
 
     // --- test_cpp_only: pure C++ self-play (no Python callback) ---
@@ -159,7 +168,8 @@ NB_MODULE(_mcts_cpp, m) {
            MCTSCppConfig config,
            nb::object predict_fn_py,
            int num_threads,
-           bool use_liberty_planes) {
+           bool use_liberty_planes,
+           bool collect_ownership) {
 
             GoGame game_ref(board_size, use_liberty_planes);
             int nn_input_size = game_ref.nn_input_size;
@@ -202,12 +212,12 @@ NB_MODULE(_mcts_cpp, m) {
 
             auto [examples, stats] = generate_self_play_data(
                 board_size, num_games, config, predict_fn, num_threads,
-                use_liberty_planes);
+                use_liberty_planes, collect_ownership);
 
             return std::make_pair(std::move(examples), stats);
         },
         "board_size"_a, "num_games"_a, "config"_a, "predict_fn"_a, "num_threads"_a = 4,
-        "use_liberty_planes"_a = false,
+        "use_liberty_planes"_a = false, "collect_ownership"_a = false,
         "Generate self-play training data with C++ MCTS engine."
     );
 }

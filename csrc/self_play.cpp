@@ -251,7 +251,7 @@ void SelfPlayWorker::run_search(MCTSNode* root, int num_sims) {
     }
 }
 
-SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
+SelfPlayWorker::GameResult SelfPlayWorker::play_game(bool collect_ownership) {
     int action_size = game_.n2 + 1;
     int full_sims = config_.num_simulations;
     bool use_playout_cap = config_.playout_cap_prob < 1.0f;
@@ -395,6 +395,13 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
                 outcome = (terminal_value > 0.0f) ? player : -player;
             }
 
+            // Compute ownership map if requested
+            std::vector<float> ownership_p1;
+            if (collect_ownership) {
+                ownership_p1.resize(game_.n2);
+                game_.get_ownership_map(game_state.data(), 1, ownership_p1.data(), scratch_);
+            }
+
             // Build examples
             std::vector<Example> examples;
             for (auto& entry : trajectory) {
@@ -406,7 +413,22 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game() {
                 } else {
                     v = -terminal_value;
                 }
-                examples.push_back({entry.canonical, entry.policy, v});
+
+                Example ex;
+                ex.state = entry.canonical;
+                ex.policy = entry.policy;
+                ex.value = v;
+
+                if (collect_ownership) {
+                    ex.ownership.resize(game_.n2);
+                    // Ownership from traj_player's perspective
+                    float sign = static_cast<float>(entry.traj_player);
+                    for (int i = 0; i < game_.n2; i++) {
+                        ex.ownership[i] = ownership_p1[i] * sign;
+                    }
+                }
+
+                examples.push_back(std::move(ex));
             }
 
             GameResult result;
@@ -511,7 +533,7 @@ void BatchInferenceCoordinator::stop() {
 std::pair<std::vector<Example>, GameStats>
 generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& config,
                         const PredictFn& predict_fn, int num_threads,
-                        bool use_liberty_planes) {
+                        bool use_liberty_planes, bool collect_ownership) {
     GoGame game(board_size, use_liberty_planes);
 
     std::atomic<int> games_remaining(num_games);
@@ -546,7 +568,7 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
             int remaining = games_remaining.fetch_sub(1);
             if (remaining <= 0) break;
 
-            auto result = worker.play_game();
+            auto result = worker.play_game(collect_ownership);
             collect_result(result);
         }
     } else {
@@ -586,7 +608,7 @@ generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& conf
                         break;
                     }
 
-                    auto result = worker.play_game();
+                    auto result = worker.play_game(collect_ownership);
 
                     std::lock_guard<std::mutex> lock(results_mutex);
                     collect_result(result);

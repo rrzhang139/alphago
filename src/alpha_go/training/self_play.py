@@ -241,6 +241,7 @@ def generate_self_play_data(
         return generate_cpp_parallel_self_play(
             game, model, mcts_config, num_games,
             num_threads=max(1, num_workers), augment=augment,
+            collect_ownership=collect_ownership,
         )
 
     if num_workers > 1 and game_name is not None:

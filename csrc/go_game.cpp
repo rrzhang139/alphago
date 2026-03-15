@@ -407,6 +407,72 @@ float GoGame::tromp_taylor_score(const float* board, FloodFillScratch& s) const 
     return p1_score - p2_score - komi;
 }
 
+void GoGame::get_ownership_map(const float* state, int player, float* out,
+                               FloodFillScratch& s) const {
+    float board[361];
+    get_current_board(state, board);
+
+    // Initialize: stones belong to their color
+    for (int i = 0; i < n2; i++) {
+        out[i] = board[i]; // +1 for black, -1 for white, 0 for empty
+    }
+
+    // Flood-fill empty regions to assign territory
+    uint8_t region_visited[361];
+    std::memset(region_visited, 0, n2);
+
+    for (int idx = 0; idx < n2; idx++) {
+        if (board[idx] != 0.0f || region_visited[idx]) continue;
+
+        // Collect empty region and its border colors
+        int region[361];
+        int region_size = 0;
+        int borders = 0; // bitmask: bit 0 = black, bit 1 = white
+
+        int ff_stack[361];
+        ff_stack[0] = idx;
+        int sp = 1;
+        region_visited[idx] = 1;
+
+        while (sp > 0) {
+            int pos = ff_stack[--sp];
+            region[region_size++] = pos;
+
+            int nc = neighbor_count_[pos];
+            for (int ni = 0; ni < nc; ni++) {
+                int nbr = neighbors_[pos][ni];
+                if (region_visited[nbr]) continue;
+
+                float bval = board[nbr];
+                if (bval == 0.0f) {
+                    region_visited[nbr] = 1;
+                    ff_stack[sp++] = nbr;
+                } else {
+                    region_visited[nbr] = 1;
+                    if (bval == 1.0f) borders |= 1;
+                    else if (bval == -1.0f) borders |= 2;
+                }
+            }
+        }
+
+        // Assign territory
+        float owner = 0.0f;
+        if (borders == 1) owner = 1.0f;       // only black borders
+        else if (borders == 2) owner = -1.0f;  // only white borders
+
+        for (int i = 0; i < region_size; i++) {
+            out[region[i]] = owner;
+        }
+    }
+
+    // Adjust for player's perspective
+    if (player == -1) {
+        for (int i = 0; i < n2; i++) {
+            out[i] = -out[i];
+        }
+    }
+}
+
 void GoGame::get_canonical_state(const float* state, int player, float* out) const {
     // Base 17 planes
     if (player == 1) {

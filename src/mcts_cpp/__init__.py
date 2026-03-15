@@ -57,7 +57,8 @@ def _convert_config(py_config: PyMCTSConfig):
 def generate_self_play_data(game, model, mcts_config: PyMCTSConfig,
                             num_games: int, num_threads: int = 4,
                             augment: bool = True,
-                            use_liberty_planes: bool = False):
+                            use_liberty_planes: bool = False,
+                            collect_ownership: bool = False):
     """Generate self-play data using C++ MCTS engine.
 
     Args:
@@ -109,21 +110,32 @@ def generate_self_play_data(game, model, mcts_config: PyMCTSConfig,
     # Call C++ engine
     examples_cpp, cpp_stats = _cpp_generate(
         board_size, num_games, cpp_config, predict_fn, num_threads,
-        use_liberty_planes
+        use_liberty_planes, collect_ownership
     )
 
     # Convert C++ Examples to Python tuples and apply augmentation
     all_examples = []
+    has_ownership = collect_ownership and len(examples_cpp) > 0 and examples_cpp[0].has_ownership()
+
     for ex in examples_cpp:
         state = np.array(ex.get_state(), dtype=np.float32)
         policy = np.array(ex.get_policy(), dtype=np.float32)
         value = ex.value
+        ownership = np.array(ex.get_ownership(), dtype=np.float32) if has_ownership else None
 
         if augment:
-            for sym_state, sym_pi in game.get_symmetries(state, policy):
-                all_examples.append((sym_state, sym_pi, value))
+            if has_ownership:
+                # Use shared augmentation helper for ownership
+                from alpha_go.training.self_play import _augment_examples
+                _augment_examples(game, [(state, policy, value, ownership)], all_examples)
+            else:
+                for sym_state, sym_pi in game.get_symmetries(state, policy):
+                    all_examples.append((sym_state, sym_pi, value))
         else:
-            all_examples.append((state, policy, value))
+            if has_ownership:
+                all_examples.append((state, policy, value, ownership))
+            else:
+                all_examples.append((state, policy, value))
 
     # Convert stats
     stats = SelfPlayStats()

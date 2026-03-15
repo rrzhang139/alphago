@@ -31,9 +31,10 @@ struct MCTSCppConfig {
 
 // Single training example
 struct Example {
-    std::vector<float> state;   // canonical state (nn_input_size floats)
-    std::vector<float> policy;  // MCTS policy (action_size floats)
-    float value;                // game outcome from this player's perspective
+    std::vector<float> state;     // canonical state (nn_input_size floats)
+    std::vector<float> policy;    // MCTS policy (action_size floats)
+    float value;                  // game outcome from this player's perspective
+    std::vector<float> ownership; // optional: per-intersection ownership (n2 floats)
 };
 
 // Stats for a batch of games
@@ -114,7 +115,7 @@ public:
         float mean_policy_entropy = 0.0f;
         float mean_search_depth = 0.0f;
     };
-    GameResult play_game();
+    GameResult play_game(bool collect_ownership = false);
 
     // Run MCTS search from root, using the inference callback
     void run_search(MCTSNode* root, int num_sims);
@@ -146,4 +147,5 @@ private:
 std::pair<std::vector<Example>, GameStats>
 generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& config,
                         const PredictFn& predict_fn, int num_threads,
-                        bool use_liberty_planes = false);
+                        bool use_liberty_planes = false,
+                        bool collect_ownership = false);

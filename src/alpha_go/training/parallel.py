@@ -208,7 +208,8 @@ def generate_gpu_parallel_self_play(game, model, mcts_config, num_games: int,
 # ---------------------------------------------------------------------------
 
 def generate_cpp_parallel_self_play(game, model, mcts_config, num_games: int,
-                                     num_threads: int, augment: bool = True):
+                                     num_threads: int, augment: bool = True,
+                                     collect_ownership: bool = False):
     """Generate self-play data using C++ MCTS engine.
 
     C++ worker threads run game logic + MCTS without the GIL. Only NN inference
@@ -218,7 +219,8 @@ def generate_cpp_parallel_self_play(game, model, mcts_config, num_games: int,
     use_liberty = getattr(game, 'use_liberty_planes', False)
     return cpp_generate(game, model, mcts_config, num_games,
                         num_threads=num_threads, augment=augment,
-                        use_liberty_planes=use_liberty)
+                        use_liberty_planes=use_liberty,
+                        collect_ownership=collect_ownership)
 
 
 # ---------------------------------------------------------------------------

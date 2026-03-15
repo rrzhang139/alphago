@@ -93,6 +93,10 @@ public:
 
     float tromp_taylor_score(const float* board, FloodFillScratch& s) const;
 
+    // Ownership map: +1.0 = owned by player, -1.0 = opponent, 0.0 = neutral
+    // out must be n2 floats, caller allocates
+    void get_ownership_map(const float* state, int player, float* out, FloodFillScratch& s) const;
+
     // Canonical state: if player==1, copy nn planes; if player==-1, swap planes
     // When use_liberty_planes=true, appends 6 liberty planes to the output
     void get_canonical_state(const float* state, int player, float* out) const;
