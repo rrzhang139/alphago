@@ -1,0 +1,12 @@
+{
+  "name": "go9_se_best",
+  "priority": "high",
+  "hypothesis": "SE+GlobalPool architecture achieved best loss (1.389 at 200 iters), still improving. Extending to 500 iters with all proven improvements should push further. scale500 plateaued at iter 125 with plain CNN — SE architecture may avoid this plateau.",
+  "run_script": "experiments/20260315_go9_se_best/run.py",
+  "gpu": "A4000",
+  "estimated_time": "5h",
+  "requested_at": "2026-03-15T20:30:00Z",
+  "warm_start": "experiments/20260314_go9_se_globalpool/data/checkpoints/checkpoint.pt",
+  "success_criteria": "Loss below 1.35 (beating se_globalpool's 1.389). If loss plateaus for 100+ iters above 1.35, kill.",
+  "notes": "Combines proven SE+6blocks architecture with pruning=0.03, VLW=0.5, BS=256. All individually validated. Run AFTER kitchen_sink finishes or is killed."
+}
