@@ -13,3 +13,4 @@ build/
 *.so
 dist/
 .DS_Store
+experiments/20260313_go9_scale500/data/checkpoints/checkpoint_state.pkl

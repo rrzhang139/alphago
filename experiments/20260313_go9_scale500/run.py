@@ -67,7 +67,7 @@ def main():
         arena=ArenaConfig(arena_games=0, eval_games=20),  # eval every iter
         num_workers=10,
         use_cpp_mcts=True,
-        use_wandb=True,
+        use_wandb=False,
     )
 
     from dataclasses import asdict
