@@ -54,6 +54,9 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
   - Liberty planes input features — 6 extra planes encoding group health
   - Checkpoint/resume for crash recovery
   - Iteration-numbered snapshots + W&B artifact uploads
+  - Ownership prediction head (KataGo's biggest improvement, ~1.65x) — full pipeline ready
+  - nn_batch_size=8 optimal for C++ engine (infra agent finding, 10x faster than 64)
+  - create_model_from_config helper for cleaner experiment scripts
 - **Key insight**: 100 iters is far too few for Go 9x9. Policy loss 2.80 is still very high (random is 4.4). Need 500+ iterations minimum. Also consider: dirichlet_alpha=0.03 (standard for Go) instead of 0.12.
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
