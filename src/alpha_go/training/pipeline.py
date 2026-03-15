@@ -63,11 +63,12 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
 
     # Try to resume from checkpoint
     resume = getattr(config.training, 'resume_from_checkpoint', False)
+    wandb_run_id = None
     if resume:
         ckpt = _load_checkpoint(model, config.training.checkpoint_dir,
                                 config.training.max_buffer_size)
         if ckpt is not None:
-            history, replay_buffer_loaded, iter_hist_loaded, start_iter, _ = ckpt
+            history, replay_buffer_loaded, iter_hist_loaded, start_iter, _, wandb_run_id = ckpt
             start_iter += 1  # resume from next iteration
             if use_window and iter_hist_loaded is not None:
                 iteration_history = iter_hist_loaded
@@ -81,11 +82,14 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
     run = None
     if config.use_wandb:
         import wandb
-        run = wandb.init(
-            project=config.wandb_project,
-            config=_config_to_dict(config),
-            resume="allow" if resume else None,
-        )
+        init_kwargs = {
+            'project': config.wandb_project,
+            'config': _config_to_dict(config),
+        }
+        if resume and wandb_run_id:
+            init_kwargs['id'] = wandb_run_id
+            init_kwargs['resume'] = 'allow'
+        run = wandb.init(**init_kwargs)
 
     checkpoint_interval = getattr(config.training, 'checkpoint_interval', 25)
 
@@ -283,6 +287,7 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
                 iteration_history=iteration_history,
                 checkpoint_dir=config.training.checkpoint_dir,
                 use_window=use_window,
+                wandb_run_id=run.id if run else None,
             )
 
     # Save final model
@@ -572,7 +577,7 @@ def _save_history(history: dict, checkpoint_dir: str):
 
 
 def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history,
-                     checkpoint_dir, use_window):
+                     checkpoint_dir, use_window, wandb_run_id=None):
     """Save a full training checkpoint for crash recovery.
 
     Note: replay buffer is NOT saved (can be multi-GB for Go 9x9).
@@ -585,6 +590,7 @@ def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history
         'iteration': iteration,
         'history': history,
         'use_window': use_window,
+        'wandb_run_id': wandb_run_id,
         # Buffer NOT saved — too large for Go 9x9 (100K+ positions × 1460 floats).
         # On resume, buffer starts empty and refills in buffer_window iterations.
     }
@@ -600,7 +606,9 @@ def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history
 
 
 def _load_checkpoint(model, checkpoint_dir, max_buffer_size):
-    """Load a training checkpoint. Returns (history, replay_buffer, iteration_history, start_iter, use_window) or None.
+    """Load a training checkpoint.
+
+    Returns (history, replay_buffer, iteration_history, start_iter, use_window, wandb_run_id) or None.
 
     Note: replay buffer is NOT restored (too large to checkpoint for Go 9x9).
     On resume, the buffer starts empty and refills within buffer_window iterations.
@@ -620,6 +628,7 @@ def _load_checkpoint(model, checkpoint_dir, max_buffer_size):
     history = state['history']
     use_window = state['use_window']
     start_iter = state['iteration']
+    wandb_run_id = state.get('wandb_run_id', None)
 
     # Buffer starts empty on resume — refills within buffer_window iterations
     iteration_history = []
@@ -627,7 +636,7 @@ def _load_checkpoint(model, checkpoint_dir, max_buffer_size):
 
     print(f"  [Resumed from iteration {start_iter}, buffer empty (refills in ~10 iters)]")
 
-    return history, replay_buffer, iteration_history, start_iter, use_window
+    return history, replay_buffer, iteration_history, start_iter, use_window, wandb_run_id
 
 
 def _config_to_dict(config: AlphaZeroConfig) -> dict:
