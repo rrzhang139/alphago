@@ -1,0 +1,12 @@
+{
+  "name": "go9_liberty_planes",
+  "priority": "medium",
+  "hypothesis": "Adding 6 liberty planes (KataGo-style input features) improves training efficiency. KataGo found 1.55x improvement from input features. Liberty planes directly encode group health (atari, 2-lib, 3+lib) which the network otherwise must learn from raw stone patterns.",
+  "run_script": "experiments/20260314_go9_liberty_planes/run.py",
+  "gpu": "A4000",
+  "estimated_time": "20h",
+  "requested_at": "2026-03-14T22:00:00Z",
+  "depends_on": "go9_fresh_correct",
+  "success_criteria": "Compare with go9_fresh_correct at same iteration count. Should show lower loss and/or higher vsRandom at same training point. Kill if loss plateaus for 100 iters.",
+  "notes": "23 input planes (17 base + 6 liberty). New architecture - cannot warm-start from existing models. Uses go9_ext game variant. Requires C++ engine update for liberty planes (TODO if not done)."
+}
