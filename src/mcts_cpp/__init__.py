@@ -56,7 +56,8 @@ def _convert_config(py_config: PyMCTSConfig):
 
 def generate_self_play_data(game, model, mcts_config: PyMCTSConfig,
                             num_games: int, num_threads: int = 4,
-                            augment: bool = True):
+                            augment: bool = True,
+                            use_liberty_planes: bool = False):
     """Generate self-play data using C++ MCTS engine.
 
     Args:
@@ -107,7 +108,8 @@ def generate_self_play_data(game, model, mcts_config: PyMCTSConfig,
 
     # Call C++ engine
     examples_cpp, cpp_stats = _cpp_generate(
-        board_size, num_games, cpp_config, predict_fn, num_threads
+        board_size, num_games, cpp_config, predict_fn, num_threads,
+        use_liberty_planes
     )
 
     # Convert C++ Examples to Python tuples and apply augmentation

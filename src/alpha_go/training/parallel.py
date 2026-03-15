@@ -212,8 +212,10 @@ def generate_cpp_parallel_self_play(game, model, mcts_config, num_games: int,
     callbacks acquire the GIL momentarily. This pushes GPU utilization to 60-80%.
     """
     from mcts_cpp import generate_self_play_data as cpp_generate
+    use_liberty = getattr(game, 'use_liberty_planes', False)
     return cpp_generate(game, model, mcts_config, num_games,
-                        num_threads=num_threads, augment=augment)
+                        num_threads=num_threads, augment=augment,
+                        use_liberty_planes=use_liberty)
 
 
 # ---------------------------------------------------------------------------

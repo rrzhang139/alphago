@@ -2,12 +2,16 @@
 #include <algorithm>
 #include <cstring>
 
-GoGame::GoGame(int size) : size(size) {
+GoGame::GoGame(int size, bool use_liberty_planes)
+    : size(size), use_liberty_planes(use_liberty_planes) {
     n2 = size * size;
-    num_planes = 2 * NUM_HISTORY + 1; // 17
-    nn_input_size = num_planes * n2;
+    base_planes = 2 * NUM_HISTORY + 1; // always 17
+    int liberty_planes = use_liberty_planes ? 6 : 0;
+    num_planes = base_planes + liberty_planes; // 17 or 23
+    base_nn_size = base_planes * n2; // internal state is always 17*n2
+    nn_input_size = num_planes * n2; // NN input can be 17*n2 or 23*n2
     pass_action = n2;
-    state_size = nn_input_size + 2;
+    state_size = base_nn_size + 2; // internal state + pass_count + ko
 
     // Build neighbor table
     for (int idx = 0; idx < n2; idx++) {
@@ -404,20 +408,75 @@ float GoGame::tromp_taylor_score(const float* board, FloodFillScratch& s) const 
 }
 
 void GoGame::get_canonical_state(const float* state, int player, float* out) const {
+    // Base 17 planes
     if (player == 1) {
-        std::memcpy(out, state, nn_input_size * sizeof(float));
-        return;
+        std::memcpy(out, state, base_nn_size * sizeof(float));
+    } else {
+        // player == -1: swap planes 0-7 <-> 8-15, flip color plane
+        const float* src = state;
+        std::memcpy(out, src + NUM_HISTORY * n2, NUM_HISTORY * n2 * sizeof(float));
+        std::memcpy(out + NUM_HISTORY * n2, src, NUM_HISTORY * n2 * sizeof(float));
+        for (int i = 0; i < n2; i++) {
+            out[COLOR_PLANE * n2 + i] = 1.0f - src[COLOR_PLANE * n2 + i];
+        }
     }
 
-    // player == -1: swap planes 0-7 <-> 8-15, flip color plane
-    const float* src = state;
+    // Append liberty planes if enabled
+    if (use_liberty_planes) {
+        float board[361]; // max 19x19
+        for (int i = 0; i < n2; i++) {
+            board[i] = out[i] - out[NUM_HISTORY * n2 + i];
+        }
+        thread_local FloodFillScratch scratch;
+        compute_liberty_planes(board, out + base_nn_size, scratch);
+    }
+}
 
-    // Copy planes 8-15 → out planes 0-7
-    std::memcpy(out, src + NUM_HISTORY * n2, NUM_HISTORY * n2 * sizeof(float));
-    // Copy planes 0-7 → out planes 8-15
-    std::memcpy(out + NUM_HISTORY * n2, src, NUM_HISTORY * n2 * sizeof(float));
-    // Flip color plane
-    for (int i = 0; i < n2; i++) {
-        out[COLOR_PLANE * n2 + i] = 1.0f - src[COLOR_PLANE * n2 + i];
+void GoGame::get_canonical_state(const float* state, int player, float* out,
+                                  FloodFillScratch& s) const {
+    if (player == 1) {
+        std::memcpy(out, state, base_nn_size * sizeof(float));
+    } else {
+        const float* src = state;
+        std::memcpy(out, src + NUM_HISTORY * n2, NUM_HISTORY * n2 * sizeof(float));
+        std::memcpy(out + NUM_HISTORY * n2, src, NUM_HISTORY * n2 * sizeof(float));
+        for (int i = 0; i < n2; i++) {
+            out[COLOR_PLANE * n2 + i] = 1.0f - src[COLOR_PLANE * n2 + i];
+        }
+    }
+
+    if (use_liberty_planes) {
+        float board[361];
+        for (int i = 0; i < n2; i++) {
+            board[i] = out[i] - out[NUM_HISTORY * n2 + i];
+        }
+        compute_liberty_planes(board, out + base_nn_size, s);
+    }
+}
+
+void GoGame::compute_liberty_planes(const float* board, float* out,
+                                     FloodFillScratch& s) const {
+    // 6 planes: own_1lib, own_2lib, own_3lib, opp_1lib, opp_2lib, opp_3lib
+    std::memset(out, 0, 6 * n2 * sizeof(float));
+
+    uint8_t processed[361];
+    std::memset(processed, 0, n2);
+
+    for (int idx = 0; idx < n2; idx++) {
+        if (board[idx] == 0.0f || processed[idx]) continue;
+
+        int liberty_count;
+        int group_size = find_group(board, idx, s, liberty_count);
+
+        float color = board[idx];
+        int offset = (color > 0) ? 0 : 3;
+        int lib_idx = std::min(liberty_count, 3) - 1;
+        if (lib_idx < 0) continue;
+
+        for (int i = 0; i < group_size; i++) {
+            int pos = s.stack[i];
+            processed[pos] = 1;
+            out[(offset + lib_idx) * n2 + pos] = 1.0f;
+        }
     }
 }

@@ -25,12 +25,14 @@ NB_MODULE(_mcts_cpp, m) {
 
     // --- GoGame ---
     nb::class_<GoGame>(m, "GoGame")
-        .def(nb::init<int>(), "size"_a = 9)
+        .def(nb::init<int, bool>(), "size"_a = 9, "use_liberty_planes"_a = false)
         .def_ro("size", &GoGame::size)
         .def_ro("n2", &GoGame::n2)
         .def_ro("nn_input_size", &GoGame::nn_input_size)
+        .def_ro("base_nn_size", &GoGame::base_nn_size)
         .def_ro("pass_action", &GoGame::pass_action)
         .def_ro("state_size", &GoGame::state_size)
+        .def_ro("use_liberty_planes", &GoGame::use_liberty_planes)
         .def("get_initial_state", [](const GoGame& g) {
             float* data = new float[g.state_size];
             g.get_initial_state(data);
@@ -156,9 +158,11 @@ NB_MODULE(_mcts_cpp, m) {
         [](int board_size, int num_games,
            MCTSCppConfig config,
            nb::object predict_fn_py,
-           int num_threads) {
+           int num_threads,
+           bool use_liberty_planes) {
 
-            int nn_input_size = (2 * NUM_HISTORY + 1) * board_size * board_size;
+            GoGame game_ref(board_size, use_liberty_planes);
+            int nn_input_size = game_ref.nn_input_size;
             int action_size = board_size * board_size + 1;
 
             // Wrap Python callable into C++ PredictFn.
@@ -197,11 +201,13 @@ NB_MODULE(_mcts_cpp, m) {
             nb::gil_scoped_release release;
 
             auto [examples, stats] = generate_self_play_data(
-                board_size, num_games, config, predict_fn, num_threads);
+                board_size, num_games, config, predict_fn, num_threads,
+                use_liberty_planes);
 
             return std::make_pair(std::move(examples), stats);
         },
         "board_size"_a, "num_games"_a, "config"_a, "predict_fn"_a, "num_threads"_a = 4,
+        "use_liberty_planes"_a = false,
         "Generate self-play training data with C++ MCTS engine."
     );
 }

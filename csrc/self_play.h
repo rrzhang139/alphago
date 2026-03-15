@@ -145,4 +145,5 @@ private:
 // predict_fn is called from an inference thread with GIL acquired.
 std::pair<std::vector<Example>, GameStats>
 generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& config,
-                        const PredictFn& predict_fn, int num_threads);
+                        const PredictFn& predict_fn, int num_threads,
+                        bool use_liberty_planes = false);

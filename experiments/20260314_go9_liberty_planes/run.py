@@ -9,9 +9,7 @@ KataGo found input features gave 1.55x training efficiency.
 Liberty planes directly encode group health which the network
 otherwise must learn from raw stone patterns.
 
-NOTE: This experiment uses Python MCTS (not C++). The C++ engine
-doesn't support liberty planes yet. Self-play will be slower.
-Consider updating C++ engine if this experiment shows promise.
+C++ MCTS engine supports liberty planes - no speed penalty.
 """
 import json
 import os
@@ -73,7 +71,7 @@ def main():
         ),
         arena=ArenaConfig(arena_games=0, eval_games=20),
         num_workers=10,
-        use_cpp_mcts=False,  # C++ doesn't support liberty planes yet
+        use_cpp_mcts=True,  # C++ engine now supports liberty planes
         use_wandb=True,
     )
 

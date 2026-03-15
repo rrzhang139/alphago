@@ -510,8 +510,9 @@ void BatchInferenceCoordinator::stop() {
 
 std::pair<std::vector<Example>, GameStats>
 generate_self_play_data(int board_size, int num_games, const MCTSCppConfig& config,
-                        const PredictFn& predict_fn, int num_threads) {
-    GoGame game(board_size);
+                        const PredictFn& predict_fn, int num_threads,
+                        bool use_liberty_planes) {
+    GoGame game(board_size, use_liberty_planes);
 
     std::atomic<int> games_remaining(num_games);
     std::mutex results_mutex;

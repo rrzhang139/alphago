@@ -22,16 +22,19 @@ class GoGame {
 public:
     int size;
     int n2;
-    int num_planes;       // 17
-    int nn_input_size;    // 17 * n2
+    int base_planes;      // always 17
+    int num_planes;       // 17 or 23 (with liberty planes)
+    int base_nn_size;     // 17 * n2 (internal state)
+    int nn_input_size;    // num_planes * n2 (NN input)
     int pass_action;      // n2
-    int state_size;       // nn_input_size + 2
+    int state_size;       // base_nn_size + 2
+    bool use_liberty_planes; // add 6 liberty planes
 
     // Precomputed neighbor table: neighbors_[idx] = {nbr0, nbr1, ...}, count in neighbor_count_
     int neighbors_[361][4];
     int neighbor_count_[361];
 
-    GoGame(int size = 9);
+    GoGame(int size = 9, bool use_liberty_planes = false);
 
     // State accessors
     float* get_planes(float* state) const { return state; }
@@ -41,16 +44,16 @@ public:
     void get_current_board(const float* state, float* board) const;
 
     int get_pass_count(const float* state) const {
-        return static_cast<int>(state[nn_input_size]);
+        return static_cast<int>(state[base_nn_size]);
     }
     void set_pass_count(float* state, int count) const {
-        state[nn_input_size] = static_cast<float>(count);
+        state[base_nn_size] = static_cast<float>(count);
     }
     int get_ko_point(const float* state) const {
-        return static_cast<int>(state[nn_input_size + 1]);
+        return static_cast<int>(state[base_nn_size + 1]);
     }
     void set_ko_point(float* state, int ko) const {
-        state[nn_input_size + 1] = static_cast<float>(ko);
+        state[base_nn_size + 1] = static_cast<float>(ko);
     }
     int get_color_to_move(const float* state) const {
         return (state[COLOR_PLANE * n2] > 0.5f) ? 1 : -1;
@@ -91,5 +94,12 @@ public:
     float tromp_taylor_score(const float* board, FloodFillScratch& s) const;
 
     // Canonical state: if player==1, copy nn planes; if player==-1, swap planes
+    // When use_liberty_planes=true, appends 6 liberty planes to the output
     void get_canonical_state(const float* state, int player, float* out) const;
+    void get_canonical_state(const float* state, int player, float* out,
+                             FloodFillScratch& s) const;
+
+    // Compute 6 liberty planes from board position (own: 1lib/2lib/3+lib, opp: same)
+    void compute_liberty_planes(const float* board, float* out,
+                                FloodFillScratch& s) const;
 };
