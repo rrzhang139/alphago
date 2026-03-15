@@ -8,10 +8,10 @@ Current objectives, evaluation criteria, and progression plan. Research agent ma
 
 | Metric | Target | Current Best | How to Measure |
 |--------|--------|-------------|----------------|
-| vs GnuGo L1 | >80% win | untested | `python scripts/eval_vs_gnugo.py --weights <path> --gnugo-level 1 --num-games 50 --num-sims 400` |
+| vs GnuGo L1 | >80% win | 0% (Fix D, 100 iters, 200-400 sims) | `python scripts/eval_vs_gnugo.py --weights <path> --gnugo-level 1 --num-games 50 --num-sims 400` |
 | vs GnuGo L5 | >50% win | untested | Same, `--gnugo-level 5` |
 | vs GnuGo L10 | >50% win | untested | Same, `--gnugo-level 10` |
-| vs Random | >95% win | 100% (playout_cap model) | Pipeline eval_games or manual |
+| vs Random | >95% win | 65% (Fix D, 100 iters, 200 sims) | Pipeline eval_games or manual |
 | Training loss | monotonically decreasing | 3.06 final, hump resolved (Fix D) | history.json from training run |
 | Policy entropy H(pi) | <1.5 (focused search) | ~2.2 (Fix D, 100 iters) | C++ MCTS diagnostics |
 | Search depth | >5.0 | ~3.0 (Fix D, 100 iters) | C++ MCTS diagnostics |
@@ -41,8 +41,9 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 ### Phase 2: Beat GnuGo Level 1 (~15 kyu) (current)
 - **Goal**: >80% win rate vs GnuGo level 1
 - **Eval**: `eval_vs_gnugo.py --gnugo-level 1 --num-games 50`
-- **Estimated**: 50-100 iterations × 500 games with stable training
-- **Status**: Unblocked. Need to eval Fix D model, then scale up iterations with Fix D config (window buffer, constant LR, 5 epochs)
+- **Estimated**: 500+ iterations × 500 games with stable training
+- **Status**: Fix D (100 iters) evaluated: 65% vs random, 0/10 vs GnuGo L1. Still very weak - needs much more training. Scale500 experiment queued for GPU (500 iters warm-start from Fix D). SE+globalpool experiment also queued (200 iters from scratch with improved architecture).
+- **Key insight**: 100 iters is far too few for Go 9x9. Policy loss 2.80 is still very high (random is 4.4). Need 500+ iterations minimum. Also consider: dirichlet_alpha=0.03 (standard for Go) instead of 0.12.
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5

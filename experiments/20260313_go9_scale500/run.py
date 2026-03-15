@@ -34,7 +34,7 @@ def main():
         mcts=MCTSConfig(
             num_simulations=200,
             c_puct=1.0,
-            dirichlet_alpha=0.12,
+            dirichlet_alpha=0.03,  # Standard for Go (was 0.12, too diffuse for 82 actions)
             dirichlet_epsilon=0.25,
             temp_threshold=30,
             temp_decay_halflife=19,

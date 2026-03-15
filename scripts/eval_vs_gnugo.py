@@ -187,6 +187,11 @@ def main():
     parser.add_argument("--num-filters", type=int, default=128)
     parser.add_argument("--num-res-blocks", type=int, default=4)
     parser.add_argument("--nn-batch-size", type=int, default=8)
+    parser.add_argument("--fpu-reduction", type=float, default=0.2, help="FPU reduction (default: 0.2)")
+    parser.add_argument("--root-fpu-reduction", type=float, default=0.1, help="Root FPU reduction (default: 0.1)")
+    parser.add_argument("--c-puct", type=float, default=1.5, help="c_puct (default: 1.5)")
+    parser.add_argument("--use-se", action="store_true", help="Use SE blocks")
+    parser.add_argument("--global-pool-value", action="store_true", help="Use global pool value head")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -195,6 +200,8 @@ def main():
         network_type="cnn",
         num_filters=args.num_filters,
         num_res_blocks=args.num_res_blocks,
+        use_se=args.use_se,
+        global_pool_value=args.global_pool_value,
     )
     model = create_model(game, net_config, lr=0.001)
     model.load(args.weights)
@@ -202,10 +209,12 @@ def main():
 
     mcts_config = MCTSConfig(
         num_simulations=args.num_sims,
-        c_puct=1.5,
+        c_puct=args.c_puct,
         dirichlet_alpha=0.03,
         dirichlet_epsilon=0.0,  # no noise during eval
         nn_batch_size=args.nn_batch_size,
+        fpu_reduction=args.fpu_reduction,
+        root_fpu_reduction=args.root_fpu_reduction,
     )
 
     print(f"\nModel vs GnuGo (level {args.gnugo_level}) on {args.board_size}x{args.board_size}")

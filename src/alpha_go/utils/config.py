@@ -131,6 +131,10 @@ class TrainingConfig:
     lr_min: float = 1e-5
     """Minimum learning rate for cosine schedule."""
 
+    lr_warmup_iters: int = 0
+    """Number of iterations to linearly warm up LR from lr_min to lr. 0 = disabled.
+    Prevents large gradient steps on noisy early data."""
+
     batch_size: int = 64
     """Minibatch size for training."""
 

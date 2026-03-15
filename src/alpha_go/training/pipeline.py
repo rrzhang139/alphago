@@ -116,9 +116,16 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
 
         # Apply learning rate schedule
         lr_schedule = getattr(config.training, 'lr_schedule', 'constant')
-        if lr_schedule == 'cosine':
+        warmup_iters = getattr(config.training, 'lr_warmup_iters', 0)
+        lr_min = getattr(config.training, 'lr_min', 1e-5)
+
+        if warmup_iters > 0 and iteration <= warmup_iters:
+            # Linear warmup from lr_min to lr
+            lr = lr_min + (config.training.lr - lr_min) * (iteration / warmup_iters)
+            for param_group in new_model.optimizer.param_groups:
+                param_group['lr'] = lr
+        elif lr_schedule == 'cosine':
             import math
-            lr_min = getattr(config.training, 'lr_min', 1e-5)
             progress = (iteration - 1) / max(1, config.training.num_iterations - 1)
             lr = lr_min + 0.5 * (config.training.lr - lr_min) * (1 + math.cos(math.pi * progress))
             for param_group in new_model.optimizer.param_groups:
