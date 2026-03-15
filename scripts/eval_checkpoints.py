@@ -65,7 +65,24 @@ def main():
                         help="Also evaluate best.pt and final.pt")
     parser.add_argument("--liberty-planes", action="store_true",
                         help="Use liberty planes (23 input planes instead of 17)")
+    parser.add_argument("--ownership-head", action="store_true",
+                        help="Network has ownership head (needed to load weights correctly)")
+    parser.add_argument("--config-json", type=str, default=None,
+                        help="Load network config from experiment config.json (auto-detect architecture)")
     args = parser.parse_args()
+
+    # Auto-detect config from experiment directory
+    if args.config_json:
+        with open(args.config_json) as f:
+            exp_config = json.load(f)
+        net = exp_config.get('network', {})
+        args.num_filters = net.get('num_filters', args.num_filters)
+        args.num_res_blocks = net.get('num_res_blocks', args.num_res_blocks)
+        args.use_se = net.get('use_se', args.use_se)
+        args.global_pool_value = net.get('global_pool_value', args.global_pool_value)
+        args.liberty_planes = net.get('use_ownership_head', False) or args.liberty_planes
+        args.ownership_head = net.get('use_ownership_head', args.ownership_head)
+        print(f"  Loaded config from {args.config_json}")
 
     # Find checkpoints
     checkpoints = find_checkpoints(args.exp_dir)
@@ -92,6 +109,7 @@ def main():
         num_res_blocks=args.num_res_blocks,
         use_se=args.use_se,
         global_pool_value=args.global_pool_value,
+        use_ownership_head=args.ownership_head,
     )
     mcts_config = MCTSConfig(
         num_simulations=args.num_sims,
