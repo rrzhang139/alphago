@@ -41,36 +41,30 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 ### Phase 2: Beat GnuGo Level 1 (~15 kyu) (current)
 - **Goal**: >80% win rate vs GnuGo level 1
 - **Eval**: `eval_vs_gnugo.py --gnugo-level 1 --num-games 50`
-- **Estimated**: 500+ iterations × 500 games with stable training
-- **Status**: Fix D (100 iters) evaluated: 65% vs random, 0/10 vs GnuGo L1. Still very weak - needs much more training.
-- **GPU experiments queued**:
-  - `scale500`: 500 iters warm-start from Fix D (may have old alpha=0.12)
-  - `fresh_correct`: 300 iters from scratch, correct alpha=0.03, c_puct=1.5
-  - `se_globalpool`: 200 iters with SE blocks + global pooling
-  - `liberty_planes`: 300 iters with KataGo-style 23-plane input (depends on fresh_correct)
-- **New features implemented (not yet GPU-tested)**:
-  - Policy surprise weighting (KataGo PSW) — upweight training samples where MCTS disagrees with network
-  - Shaped Dirichlet noise — bias exploration toward plausible moves
-  - Liberty planes input features — 6 extra planes encoding group health
-  - Checkpoint/resume for crash recovery
-  - Iteration-numbered snapshots + W&B artifact uploads
-  - Ownership prediction head (KataGo's biggest improvement, ~1.65x) — full pipeline including C++ MCTS support
-  - nn_batch_size=8 optimal for C++ engine (infra agent finding, 10x faster than 64)
-  - create_model_from_config helper for cleaner experiment scripts
-  - C++ ownership map collection — ownership experiment can use fast C++ MCTS path natively
-  - eval_checkpoints.py with --config-json auto-detection of architecture
-- **Additional GPU experiments queued**:
-  - `kitchen_sink`: ALL improvements combined (liberty+PSW+shaped_dirichlet+playout_cap), 300 iters
-  - `ownership`: Kitchen sink + ownership head, 300 iters
-- **Local experiment results (March 15)**:
-  - C++ MCTS 20 iters: loss 4.52→2.71, model learning but still weak at 20 iters (~40% vsRandom)
-  - **BS=256 confirmed optimal**: 13% lower loss than BS=64 (1.378 vs 1.588)
-  - **Policy target pruning (KataGo, thresh=0.03)**: +6% vsRandom (73% vs 67%), 9.3% lower loss
-  - Playout cap: equal quality at 4-5x game speed (needs 100+ games/iter)
-  - Kitchen sink (all features): slower locally but expected to help at GPU scale
-  - Progressive sims (25→100): 43% faster, 3.2% worse loss (neutral)
-  - Global pool value added to kitchen_sink, ownership, liberty experiments
-- **Key insight**: 100 iters is far too few for Go 9x9. Policy loss 2.80 is still very high (random is 4.4). Need 500+ iterations minimum. Also consider: dirichlet_alpha=0.03 (standard for Go) instead of 0.12.
+- **Estimated**: 500+ iterations with SE architecture
+- **Status**: All 3 initial GPU experiments completed. 0/20 vs GnuGo L1 for all models. Model plays coherent Go (beats random easily) but lacks tactical depth.
+
+#### GPU Experiment Results (March 15)
+| Experiment | Iters | Architecture | Best Loss | vsGnuGo L1 | Cost | Key Finding |
+|-----------|-------|-------------|-----------|------------|------|-------------|
+| scale500 | 500 | CNN 4b 128f | 1.605 (iter 32) | 0/20 | $0.58 | **Plateaued at iter ~25**. 475 wasted iterations. |
+| fresh_correct | 300 | CNN 4b 128f | 1.639 (iter 250) | 0/20 | $0.50 | Plateau ~1.65-1.80 after iter 86. |
+| se_globalpool | 200 | **CNN 6b SE+GP** | **1.389** (iter 137) | 0/20 | $0.54 | **BEST. Still improving at iter 176 (1.416).** |
+| kitchen_sink | running | CNN 4b 128f GP | 1.80 (plateau iter 18-56+) | - | ongoing | PSW+VLW+shaped_dirichlet may be too aggressive |
+
+#### Critical Findings
+1. **Plain CNN architecture hits a wall at loss ~1.6-1.7** — scale500 plateaued at iter 25, never improved in 475 more iters
+2. **SE blocks + global pool break through that wall** — reached 1.389 (15% better) in only 200 iters, still improving
+3. **More sims don't help**: 800 sims still 0/20 vs GnuGo L1 — network quality is the bottleneck
+4. **Model does play Go**: beats random easily, builds territory, reaches rootV=1.0 by move 23. But no tactical reading
+5. **Reference impl** (michaelnny/alpha_zero) used 10 res blocks, 150K gradient steps, 1M+ games to reach amateur 1-dan
+
+#### Current Priorities (ordered)
+1. **se_best**: 500 iters SE+GP warm-start from se_globalpool (QUEUED, highest priority)
+2. Test 10 res blocks vs 6 blocks (local experiment running)
+3. kitchen_sink: let run to iter 100, kill if still plateaued at 1.80
+4. liberty_planes: run after kitchen_sink on same pod
+5. ownership: run after liberty_planes (lowest priority)
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
