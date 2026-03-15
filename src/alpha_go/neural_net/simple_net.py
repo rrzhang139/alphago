@@ -114,10 +114,13 @@ class SimpleNetWrapper:
         # Value loss: MSE
         value_loss = F.mse_loss(v, target_vs_t)
 
-        total_loss = policy_loss + value_loss
+        vlw = getattr(self, '_value_loss_weight', 1.0)
+        total_loss = policy_loss + vlw * value_loss
 
         self.optimizer.zero_grad()
         total_loss.backward()
+        if hasattr(self, '_max_grad_norm') and self._max_grad_norm > 0:
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), self._max_grad_norm)
         self.optimizer.step()
 
         return {
@@ -133,11 +136,16 @@ class SimpleNetWrapper:
         }, path)
 
     def load(self, path: str):
-        checkpoint = torch.load(path, map_location=self.net.device, weights_only=True)
+        checkpoint = torch.load(path, map_location=self.net.device, weights_only=False)
         self.net.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
 
     def clone(self) -> 'SimpleNetWrapper':
         new_wrapper = SimpleNetWrapper(self.board_size, self.action_size, self.config, self.lr)
         new_wrapper.net.load_state_dict(copy.deepcopy(self.net.state_dict()))
+        # Preserve training attributes
+        if hasattr(self, '_max_grad_norm'):
+            new_wrapper._max_grad_norm = self._max_grad_norm
+        if hasattr(self, '_value_loss_weight'):
+            new_wrapper._value_loss_weight = self._value_loss_weight
         return new_wrapper

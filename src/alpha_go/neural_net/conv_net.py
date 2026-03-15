@@ -199,10 +199,13 @@ class ConvNetWrapper:
 
         policy_loss = -torch.sum(target_pis_t * log_pi) / states_t.size(0)
         value_loss = F.mse_loss(v, target_vs_t)
-        total_loss = policy_loss + value_loss
+        vlw = getattr(self, '_value_loss_weight', 1.0)
+        total_loss = policy_loss + vlw * value_loss
 
         self.optimizer.zero_grad()
         total_loss.backward()
+        if hasattr(self, '_max_grad_norm') and self._max_grad_norm > 0:
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), self._max_grad_norm)
         self.optimizer.step()
 
         return {
@@ -218,7 +221,7 @@ class ConvNetWrapper:
         }, path)
 
     def load(self, path: str):
-        checkpoint = torch.load(path, map_location=self.net.device, weights_only=True)
+        checkpoint = torch.load(path, map_location=self.net.device, weights_only=False)
         self.net.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -233,4 +236,9 @@ class ConvNetWrapper:
             new_wrapper.optimizer = torch.optim.Adam(
                 new_wrapper.net.parameters(), lr=self.lr, weight_decay=self.weight_decay
             )
+        # Preserve training attributes
+        if hasattr(self, '_max_grad_norm'):
+            new_wrapper._max_grad_norm = self._max_grad_norm
+        if hasattr(self, '_value_loss_weight'):
+            new_wrapper._value_loss_weight = self._value_loss_weight
         return new_wrapper

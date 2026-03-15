@@ -171,7 +171,7 @@ class OthelloNetWrapper:
         }, path)
 
     def load(self, path: str):
-        checkpoint = torch.load(path, map_location=self.net.device, weights_only=True)
+        checkpoint = torch.load(path, map_location=self.net.device, weights_only=False)
         self.net.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
 

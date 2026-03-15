@@ -264,7 +264,7 @@ def _reconstruct_model(weight_bytes: bytes, info: dict):
     finally:
         torch.cuda.is_available = _orig_cuda_available
 
-    state_dict = torch.load(io.BytesIO(weight_bytes), map_location='cpu', weights_only=True)
+    state_dict = torch.load(io.BytesIO(weight_bytes), map_location='cpu', weights_only=False)
     model.net.load_state_dict(state_dict)
     model.net.eval()
     return model
