@@ -239,15 +239,36 @@ class MCTS:
         return action_probs, diag
 
     def _add_noise(self, root: MCTSNode):
-        """Add Dirichlet noise to root priors for exploration."""
+        """Add Dirichlet noise to root priors for exploration.
+
+        If shaped_dirichlet is enabled (KataGo), the noise is biased toward
+        moves the network already considers reasonable. Half the alpha is
+        distributed uniformly, half is concentrated on moves with above-average
+        policy prior. This avoids wasting exploration on obviously terrible
+        moves (e.g., filling your own eyes in Go).
+        """
         if self.config.dirichlet_epsilon == 0:
             return
 
         n = len(root.children)
         if n == 0:
             return
-        noise = np.random.dirichlet(np.full(n, self.config.dirichlet_alpha))
-        eps = self.config.dirichlet_epsilon
 
+        alpha_base = self.config.dirichlet_alpha
+        use_shaped = getattr(self.config, 'shaped_dirichlet', False)
+
+        if use_shaped and n > 1:
+            # Shaped Dirichlet: bias noise toward high-prior moves
+            priors = np.array([child.P for child in root.children])
+            mean_prior = priors.mean()
+            # Moves above average get extra alpha
+            bonus = np.maximum(0, priors - mean_prior)
+            # Half uniform, half proportional to bonus
+            alphas = alpha_base * 0.5 + alpha_base * 0.5 * (1.0 + bonus / (bonus.sum() + 1e-10) * n)
+            noise = np.random.dirichlet(alphas)
+        else:
+            noise = np.random.dirichlet(np.full(n, alpha_base))
+
+        eps = self.config.dirichlet_epsilon
         for i, child in enumerate(root.children):
             child.P = (1 - eps) * child.P + eps * noise[i]

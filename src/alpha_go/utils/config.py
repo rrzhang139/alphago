@@ -24,6 +24,12 @@ class MCTSConfig:
     """Weight of Dirichlet noise vs prior. 0 = no noise, 1 = all noise.
     AlphaZero uses 0.25."""
 
+    shaped_dirichlet: bool = False
+    """Use shaped Dirichlet noise (KataGo). Instead of uniform alpha for all moves,
+    concentrate half the noise toward moves the network likes. This biases exploration
+    toward 'interesting' moves (plausible alternatives) rather than random ones.
+    Especially useful for Go where most random moves are terrible."""
+
     temperature: float = 1.0
     """Temperature for move selection from visit counts.
     1.0 = proportional to visits, ->0 = greedy (pick most visited)."""

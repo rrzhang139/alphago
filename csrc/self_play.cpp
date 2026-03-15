@@ -19,13 +19,41 @@ void SelfPlayWorker::add_dirichlet_noise(MCTSNode* root) {
     if (n == 0) return;
 
     // Sample Dirichlet via gamma distribution
-    std::gamma_distribution<float> gamma(config_.dirichlet_alpha, 1.0f);
+    // Shaped Dirichlet (KataGo): bias noise toward high-prior moves
     std::vector<float> noise(n);
     float noise_sum = 0.0f;
-    for (int i = 0; i < n; i++) {
-        noise[i] = gamma(rng_);
-        noise_sum += noise[i];
+
+    if (config_.shaped_dirichlet && n > 1) {
+        // Compute mean prior
+        float mean_prior = 0.0f;
+        for (int i = 0; i < n; i++) mean_prior += root->children[i]->P;
+        mean_prior /= n;
+
+        // Compute bonus for above-average moves
+        float bonus_sum = 0.0f;
+        std::vector<float> bonus(n);
+        for (int i = 0; i < n; i++) {
+            bonus[i] = std::max(0.0f, root->children[i]->P - mean_prior);
+            bonus_sum += bonus[i];
+        }
+
+        // Half uniform alpha, half shaped
+        float base_alpha = config_.dirichlet_alpha;
+        for (int i = 0; i < n; i++) {
+            float alpha_i = base_alpha * 0.5f + base_alpha * 0.5f *
+                (1.0f + bonus[i] / (bonus_sum + 1e-10f) * n);
+            std::gamma_distribution<float> gamma(alpha_i, 1.0f);
+            noise[i] = gamma(rng_);
+            noise_sum += noise[i];
+        }
+    } else {
+        std::gamma_distribution<float> gamma(config_.dirichlet_alpha, 1.0f);
+        for (int i = 0; i < n; i++) {
+            noise[i] = gamma(rng_);
+            noise_sum += noise[i];
+        }
     }
+
     if (noise_sum > 0.0f) {
         float inv = 1.0f / noise_sum;
         for (int i = 0; i < n; i++) noise[i] *= inv;

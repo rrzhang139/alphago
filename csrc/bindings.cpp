@@ -80,6 +80,7 @@ NB_MODULE(_mcts_cpp, m) {
         .def_rw("c_puct", &MCTSCppConfig::c_puct)
         .def_rw("dirichlet_alpha", &MCTSCppConfig::dirichlet_alpha)
         .def_rw("dirichlet_epsilon", &MCTSCppConfig::dirichlet_epsilon)
+        .def_rw("shaped_dirichlet", &MCTSCppConfig::shaped_dirichlet)
         .def_rw("temperature", &MCTSCppConfig::temperature)
         .def_rw("temp_threshold", &MCTSCppConfig::temp_threshold)
         .def_rw("temp_decay_halflife", &MCTSCppConfig::temp_decay_halflife)

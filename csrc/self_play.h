@@ -26,6 +26,7 @@ struct MCTSCppConfig {
     float root_fpu_reduction = -1.0f;
     float c_puct_base = 0.0f;
     int coordinator_wait_us = 25;  // BatchInferenceCoordinator sleep (microseconds)
+    bool shaped_dirichlet = false; // KataGo: bias noise toward high-prior moves
 };
 
 // Single training example
