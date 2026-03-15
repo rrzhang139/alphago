@@ -55,6 +55,7 @@ def main():
             num_filters=128,
             num_res_blocks=4,
             use_ownership_head=True,  # KataGo auxiliary ownership
+            global_pool_value=True,  # KataGo 1.60x improvement
         ),
         training=TrainingConfig(
             lr=0.001,

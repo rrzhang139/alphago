@@ -60,6 +60,7 @@ def main():
             network_type="cnn",
             num_filters=128,
             num_res_blocks=4,
+            global_pool_value=True,  # KataGo 1.60x improvement
         ),
         training=TrainingConfig(
             lr=0.001,
