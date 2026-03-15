@@ -177,6 +177,14 @@ class TrainingConfig:
     """Scale for score-based value targets: target = tanh(score / scale).
     For Go 9x9: typical scores range 0.5-30, scale=20 maps well to [-1,1]."""
 
+    checkpoint_interval: int = 25
+    """Save checkpoint every N iterations for crash recovery. 0 = only save at end.
+    Checkpoint includes model, optimizer, history, buffer state, and iteration number."""
+
+    resume_from_checkpoint: bool = False
+    """If True, resume training from the latest checkpoint in checkpoint_dir.
+    Loads model, optimizer state, replay buffer, and history."""
+
 
 @dataclass
 class ArenaConfig:

@@ -94,6 +94,10 @@ def parse_args():
                    help='Max gradient norm for clipping. 0=disabled. AlphaZero uses 1.0 (default: 0.0)')
     t.add_argument('--value-loss-weight', type=float, default=1.0,
                    help='Weight for value loss in total_loss = policy + w*value (default: 1.0)')
+    t.add_argument('--checkpoint-interval', type=int, default=25,
+                   help='Save checkpoint every N iterations for crash recovery (default: 25)')
+    t.add_argument('--resume', action='store_true',
+                   help='Resume training from latest checkpoint in checkpoint-dir')
 
     # Arena
     a = parser.add_argument_group('arena', 'Model evaluation')
@@ -149,6 +153,8 @@ def main():
             checkpoint_dir=args.checkpoint_dir,
             max_grad_norm=args.max_grad_norm,
             value_loss_weight=args.value_loss_weight,
+            checkpoint_interval=args.checkpoint_interval,
+            resume_from_checkpoint=args.resume,
         ),
         arena=ArenaConfig(
             arena_games=args.arena_games,

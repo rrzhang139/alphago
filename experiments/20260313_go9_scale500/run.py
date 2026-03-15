@@ -61,6 +61,8 @@ def main():
             buffer_strategy="window",
             buffer_window=10,
             checkpoint_dir=CHECKPOINT_DIR,
+            checkpoint_interval=25,
+            resume_from_checkpoint=True,     # Auto-resume on crash
         ),
         arena=ArenaConfig(arena_games=0, eval_games=20),  # eval every iter
         num_workers=10,

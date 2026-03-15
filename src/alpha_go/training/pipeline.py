@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import pickle
 import time
 from collections import deque
 from dataclasses import asdict
@@ -38,7 +39,11 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
     os.makedirs(config.training.checkpoint_dir, exist_ok=True)
     fig_dir = os.path.join(config.training.checkpoint_dir, 'figures')
     os.makedirs(fig_dir, exist_ok=True)
+
+    use_window = config.training.buffer_strategy == "window"
+    start_iter = 1
     replay_buffer = deque(maxlen=config.training.max_buffer_size)
+    iteration_history = [] if use_window else None
     history = {
         'iteration': [],
         'total_loss': [],
@@ -56,6 +61,22 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
         'mean_game_length': [],
     }
 
+    # Try to resume from checkpoint
+    resume = getattr(config.training, 'resume_from_checkpoint', False)
+    if resume:
+        ckpt = _load_checkpoint(model, config.training.checkpoint_dir,
+                                config.training.max_buffer_size)
+        if ckpt is not None:
+            history, replay_buffer_loaded, iter_hist_loaded, start_iter, _ = ckpt
+            start_iter += 1  # resume from next iteration
+            if use_window and iter_hist_loaded is not None:
+                iteration_history = iter_hist_loaded
+            elif replay_buffer_loaded is not None:
+                replay_buffer = replay_buffer_loaded
+            print(f"  Resuming training from iteration {start_iter}")
+        else:
+            print(f"  No checkpoint found, starting from scratch")
+
     # wandb setup
     run = None
     if config.use_wandb:
@@ -63,12 +84,10 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
         run = wandb.init(
             project=config.wandb_project,
             config=_config_to_dict(config),
+            resume="allow" if resume else None,
         )
 
-    # Buffer setup: FIFO deque or sliding window of per-iteration lists
-    use_window = config.training.buffer_strategy == "window"
-    if use_window:
-        iteration_history = []  # list of per-iteration example lists
+    checkpoint_interval = getattr(config.training, 'checkpoint_interval', 25)
 
     _print_header(config, num_workers)
     _print_table_header()
@@ -76,7 +95,7 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
     best_model = model
     t_start = time.time()
 
-    for iteration in range(1, config.training.num_iterations + 1):
+    for iteration in range(start_iter, config.training.num_iterations + 1):
         t_iter = time.time()
 
         # 1. Self-play (with optional progressive sims)
@@ -240,6 +259,18 @@ def run_pipeline(game: Game, model, config: AlphaZeroConfig) -> dict:
                 'time/arena': t_arena,
                 'time/eval': t_eval,
             })
+
+        # Periodic checkpoint
+        if checkpoint_interval > 0 and iteration % checkpoint_interval == 0:
+            _save_checkpoint(
+                model=best_model,
+                history=history,
+                replay_buffer=replay_buffer,
+                iteration=iteration,
+                iteration_history=iteration_history,
+                checkpoint_dir=config.training.checkpoint_dir,
+                use_window=use_window,
+            )
 
     # Save final model
     best_model.save(os.path.join(config.training.checkpoint_dir, 'final.pt'))
@@ -517,6 +548,66 @@ def _save_history(history: dict, checkpoint_dir: str):
     path = os.path.join(checkpoint_dir, 'history.json')
     with open(path, 'w') as f:
         json.dump(serializable, f, indent=2, default=str)
+
+
+def _save_checkpoint(model, history, replay_buffer, iteration, iteration_history,
+                     checkpoint_dir, use_window):
+    """Save a full training checkpoint for crash recovery."""
+    ckpt_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
+    model.save(ckpt_path)
+
+    state = {
+        'iteration': iteration,
+        'history': history,
+        'use_window': use_window,
+    }
+
+    # Save buffer state
+    if use_window:
+        state['iteration_history'] = iteration_history
+    else:
+        state['replay_buffer'] = list(replay_buffer)
+
+    state_path = os.path.join(checkpoint_dir, 'checkpoint_state.pkl')
+    with open(state_path, 'wb') as f:
+        pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Also save history.json for easy inspection
+    _save_history(history, checkpoint_dir)
+
+    print(f"  [Checkpoint saved at iter {iteration}]")
+
+
+def _load_checkpoint(model, checkpoint_dir, max_buffer_size):
+    """Load a training checkpoint. Returns (history, replay_buffer, iteration_history, start_iter, use_window) or None."""
+    ckpt_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
+    state_path = os.path.join(checkpoint_dir, 'checkpoint_state.pkl')
+
+    if not os.path.exists(ckpt_path) or not os.path.exists(state_path):
+        return None
+
+    model.load(ckpt_path)
+    print(f"  [Resumed model from {ckpt_path}]")
+
+    with open(state_path, 'rb') as f:
+        state = pickle.load(f)
+
+    history = state['history']
+    use_window = state['use_window']
+    start_iter = state['iteration']
+
+    iteration_history = None
+    replay_buffer = None
+
+    if use_window:
+        iteration_history = state.get('iteration_history', [])
+    else:
+        buf_data = state.get('replay_buffer', [])
+        replay_buffer = deque(buf_data, maxlen=max_buffer_size)
+
+    print(f"  [Resumed from iteration {start_iter}, {len(history['iteration'])} iters of history]")
+
+    return history, replay_buffer, iteration_history, start_iter, use_window
 
 
 def _config_to_dict(config: AlphaZeroConfig) -> dict:
