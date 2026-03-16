@@ -1,0 +1,11 @@
+{
+  "name": "go9_se_10ep_rom",
+  "priority": "high",
+  "hypothesis": "10 epochs per iteration (47% better loss locally) + random opening moves (5.5% better loss, more diverse) on proven SE+GP architecture should significantly outperform se_best (5 epochs).",
+  "run_script": "experiments/20260316_go9_se_10ep_rom/run.py",
+  "gpu": "A4000",
+  "estimated_time": "8h",
+  "requested_at": "2026-03-16T00:15:00Z",
+  "success_criteria": "Loss below 1.2 by iter 200 (se_globalpool was 1.389 at 200 iters with 5 epochs). If loss plateaus above 1.3 for 100+ iters, kill.",
+  "notes": "REQUIRES: git pull to get random_opening_moves feature. From scratch (no warm start). Expected to be slower per iteration (10 vs 5 epochs) but much more efficient overall. Run after se_best completes."
+}
