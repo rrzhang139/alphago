@@ -5,6 +5,19 @@
 
 ## Inbox
 
+### [2026-03-16 07:00] URGENT: Ownership is THE fix for GnuGo — elevate priority
+
+Detailed game analysis reveals the ROOT CAUSE of GnuGo failure: **life & death blindness**. The model builds large territories (rootV=0.93) but its groups aren't alive. GnuGo invades and captures everything — only 6/35 stones survive (W+89.5).
+
+**Ownership prediction directly fixes this** — it teaches the model which stones will be alive at game end. Local test confirms: 4.5% better loss with ownership (1.630 vs 1.707), even at 50 sims.
+
+**Updated priority order:**
+1. se_best (RUNNING) — let it finish
+2. se_10ep_rom (QUEUED) — our best hyperparameters
+3. **se_ownership (CRITICAL)** — same as se_10ep_rom + ownership. This is our best shot at beating GnuGo L1. Should run immediately after se_10ep_rom OR IN PARALLEL if possible.
+
+If you can run two experiments on different pods, run se_10ep_rom and se_ownership simultaneously.
+
 ### [2026-03-16 04:00] NEW: SE + ownership experiment queued
 
 Queued `go9_se_ownership.json` — same as se_10ep_rom but with KataGo ownership prediction head. Run AFTER se_10ep_rom completes.
