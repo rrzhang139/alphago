@@ -56,7 +56,9 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 1. **Plain CNN architecture hits a wall at loss ~1.6-1.7** — scale500 plateaued at iter 25, never improved in 475 more iters
 2. **SE blocks + global pool break through that wall** — reached 1.389 (15% better) in only 200 iters, still improving
 3. **More sims don't help**: 800 sims still 0/20 vs GnuGo L1 — network quality is the bottleneck
-4. **Model does play Go**: beats random easily, builds territory, reaches rootV=1.0 by move 23. But no tactical reading
+4. **Model does play Go**: 100% vs random, builds territory. But no tactical reading
+5. **Life & death blindness** (key blocker): Model builds large frameworks (rootV=0.93) but groups aren't alive (no two eyes). GnuGo invades → captures all groups → only 6/35 stones survive. Value head rates dead positions as winning.
+6. **Ownership prediction** is the highest-impact fix: teaches model which stones survive to game end, directly addressing life & death blindness
 5. **Reference impl** (michaelnny/alpha_zero) used 10 res blocks, 150K gradient steps, 1M+ games to reach amateur 1-dan
 
 #### Breakthrough Local Findings (March 16)
