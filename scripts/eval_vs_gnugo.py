@@ -96,20 +96,23 @@ class GnuGoGTP:
 
 
 def play_game(game: Go, model, mcts_config: MCTSConfig, gnugo: GnuGoGTP,
-              model_color: int = 1, verbose: bool = False) -> int:
+              model_color: int = 1, verbose: bool = False) -> dict:
     """Play one game: our model vs GnuGo.
 
     Args:
         model_color: 1 = our model plays Black, -1 = our model plays White.
 
     Returns:
-        1 if our model wins, -1 if GnuGo wins, 0 for draw.
+        dict with 'result' (1=win, -1=loss, 0=draw), 'moves', 'passes',
+        'score', 'avg_rootv', 'min_rootv'.
     """
     gnugo.clear()
     state = game.get_initial_state()
     player = 1  # Black goes first
     move_count = 0
     mcts_engine = MCTS(game, model, mcts_config)
+    model_passes = 0
+    root_values = []
 
     color_name = {1: "black", -1: "white"}
 
@@ -119,15 +122,26 @@ def play_game(game: Go, model, mcts_config: MCTSConfig, gnugo: GnuGoGTP,
             canonical = game.get_canonical_state(state, player)
             temp = 0.01  # always greedy during eval
             mcts_engine.temperature = temp
-            pi, _ = mcts_engine.search(state, player)
+            pi, diag = mcts_engine.search(state, player, collect_diagnostics=True)
             action = np.argmax(pi)  # greedy
             gtp_move = action_to_gtp(action, game.size)
+
+            if diag is not None:
+                root_values.append(diag.root_value)
+
+            if action == game.size * game.size:
+                model_passes += 1
 
             # Tell GnuGo about our move
             gnugo.play(color_name[player], gtp_move)
 
             if verbose:
-                print(f"  Model ({color_name[model_color]}): {gtp_move}")
+                rv = diag.root_value if diag else 0
+                pp = pi[game.size * game.size]
+                extra = f"  rootV={rv:+.3f} pass_prob={pp:.3f}"
+                if action == game.size * game.size:
+                    extra += " ***PASS***"
+                print(f"  Model ({color_name[model_color]}): {gtp_move}{extra}")
         else:
             # GnuGo's turn
             gtp_move = gnugo.genmove(color_name[player])
@@ -135,7 +149,9 @@ def play_game(game: Go, model, mcts_config: MCTSConfig, gnugo: GnuGoGTP,
             if gtp_move.upper() == "RESIGN":
                 if verbose:
                     print(f"  GnuGo resigned!")
-                return 1  # our model wins
+                return {'result': 1, 'moves': move_count, 'passes': model_passes,
+                        'score': 'resign', 'avg_rootv': np.mean(root_values) if root_values else 0,
+                        'min_rootv': min(root_values) if root_values else 0}
 
             action = gtp_to_action(gtp_move, game.size)
 
@@ -159,9 +175,14 @@ def play_game(game: Go, model, mcts_config: MCTSConfig, gnugo: GnuGoGTP,
             elif gnugo_score.startswith("W+"):
                 winner = -1  # White wins
             else:
-                return 0  # draw
+                return {'result': 0, 'moves': move_count, 'passes': model_passes,
+                        'score': gnugo_score, 'avg_rootv': np.mean(root_values) if root_values else 0,
+                        'min_rootv': min(root_values) if root_values else 0}
 
-            return 1 if winner == model_color else -1
+            result = 1 if winner == model_color else -1
+            return {'result': result, 'moves': move_count, 'passes': model_passes,
+                    'score': gnugo_score, 'avg_rootv': np.mean(root_values) if root_values else 0,
+                    'min_rootv': min(root_values) if root_values else 0}
 
         player = -player
 
@@ -228,6 +249,8 @@ def main():
     wins = 0
     losses = 0
     draws = 0
+    total_passes = 0
+    all_scores = []
     t_start = time.time()
 
     for i in range(args.num_games):
@@ -235,8 +258,12 @@ def main():
         model_color = 1 if i % 2 == 0 else -1
         color_str = "Black" if model_color == 1 else "White"
 
-        result = play_game(game, model, mcts_config, gnugo,
-                          model_color=model_color, verbose=args.verbose)
+        game_info = play_game(game, model, mcts_config, gnugo,
+                              model_color=model_color, verbose=args.verbose)
+
+        result = game_info['result']
+        total_passes += game_info['passes']
+        all_scores.append(game_info['score'])
 
         if result == 1:
             wins += 1
@@ -254,16 +281,22 @@ def main():
         print(f"Game {i+1:>3}/{args.num_games}: {result_str} (as {color_str})  "
               f"| {wins}W-{losses}L-{draws}D  "
               f"| WR: {wins/(i+1):.0%}  "
-              f"| {rate:.1f} games/min")
+              f"| {game_info['moves']} moves, {game_info['passes']} passes  "
+              f"| score: {game_info['score']}  "
+              f"| rootV: {game_info['avg_rootv']:+.2f}  "
+              f"| {rate:.1f} g/m")
 
     gnugo.close()
 
     total = wins + losses + draws
     elapsed = time.time() - t_start
-    print(f"\n{'='*50}")
+    avg_passes = total_passes / total if total > 0 else 0
+    print(f"\n{'='*60}")
     print(f"Final: {wins}W-{losses}L-{draws}D ({wins/total:.0%} win rate)")
     print(f"Time: {elapsed/60:.1f} min ({total/elapsed*60:.1f} games/min)")
     print(f"GnuGo level: {args.gnugo_level}")
+    print(f"Avg model passes/game: {avg_passes:.1f}")
+    print(f"Scores: {all_scores}")
 
 
 if __name__ == "__main__":
