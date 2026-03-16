@@ -59,12 +59,16 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 4. **Model does play Go**: beats random easily, builds territory, reaches rootV=1.0 by move 23. But no tactical reading
 5. **Reference impl** (michaelnny/alpha_zero) used 10 res blocks, 150K gradient steps, 1M+ games to reach amateur 1-dan
 
+#### Breakthrough Local Findings (March 16)
+- **10 epochs >> 5 epochs**: loss 1.337 vs 2.537 in 5 iters (**47% better!**). All GPU experiments used 5 epochs — we've been under-training.
+- **Random opening moves (ROM=6)**: loss 2.393 vs 2.532 (**5.5% better**), more diverse search (H=1.32 vs 0.51), 20% faster
+- **10 res blocks marginal**: only 2.4% better loss but 43% slower. Not worth the cost.
+
 #### Current Priorities (ordered)
-1. **se_best**: 500 iters SE+GP warm-start from se_globalpool (QUEUED, highest priority)
-2. Test 10 res blocks vs 6 blocks (local experiment running)
-3. kitchen_sink: let run to iter 100, kill if still plateaued at 1.80
-4. liberty_planes: run after kitchen_sink on same pod
-5. ownership: run after liberty_planes (lowest priority)
+1. **se_best** (RUNNING on pod): 500 iters SE+GP warm-start, 5 epochs (may be under-trained)
+2. **se_10ep_rom** (QUEUED, highest priority): SE+GP + **10 epochs** + ROM=6, from scratch, 500 iters. Should significantly outperform se_best.
+3. liberty_planes: after se_10ep_rom
+4. ownership: lowest priority
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
