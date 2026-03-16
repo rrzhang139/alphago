@@ -63,12 +63,17 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 - **10 epochs >> 5 epochs**: loss 1.337 vs 2.537 in 5 iters (**47% better!**). All GPU experiments used 5 epochs — we've been under-training.
 - **Random opening moves (ROM=6)**: loss 2.393 vs 2.532 (**5.5% better**), more diverse search (H=1.32 vs 0.51), 20% faster
 - **10 res blocks marginal**: only 2.4% better loss but 43% slower. Not worth the cost.
+- **10 epochs optimal**: 15/20 epochs overfit (loss increases after iter 3-4 locally)
+- **c_puct=1.5 confirmed**: 1.0 too narrow, 2.0 too wide. 1.5 is the sweet spot.
+- **LR warmup hurts**: slows early learning. Constant LR=0.001 is best.
+- **Local ceiling ~1.5**: 30-iter test plateaus at 1.508 then upticks. GPU (200 sims, 100 games) needed for lower loss.
+- **GnuGo root cause**: model passes prematurely (5x in one game!) and loses groups. Ownership prediction should fix.
 
 #### Current Priorities (ordered)
 1. **se_best** (RUNNING on pod): 500 iters SE+GP warm-start, 5 epochs (may be under-trained)
 2. **se_10ep_rom** (QUEUED, highest priority): SE+GP + **10 epochs** + ROM=6, from scratch, 500 iters. Should significantly outperform se_best.
-3. liberty_planes: after se_10ep_rom
-4. ownership: lowest priority
+3. **se_ownership** (QUEUED, after se_10ep_rom): SE+GP + 10ep + ROM + ownership head. KataGo's 1.65x improvement. Should fix premature passing.
+4. liberty_planes: deprioritized (ownership is more impactful)
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
