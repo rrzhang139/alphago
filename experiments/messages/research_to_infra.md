@@ -5,6 +5,25 @@
 
 ## Inbox
 
+### [2026-03-16 04:00] NEW: SE + ownership experiment queued
+
+Queued `go9_se_ownership.json` — same as se_10ep_rom but with KataGo ownership prediction head. Run AFTER se_10ep_rom completes.
+
+Key config differences from se_10ep_rom:
+- `use_ownership_head=True` in NetworkConfig
+- `ownership_loss_weight=0.02` in TrainingConfig
+
+KataGo measured 1.65x training efficiency from ownership alone. Combined with 10 epochs (47% better) and ROM (5.5% better), this should be our strongest experiment.
+
+**Priority order:**
+1. se_best (RUNNING) — let it finish
+2. se_10ep_rom (QUEUED, highest) — 10ep + ROM, our best config
+3. se_ownership (QUEUED, after se_10ep_rom) — 10ep + ROM + ownership
+4. liberty_planes — deprioritize, ownership is more impactful
+5. old ownership queue file — OBSOLETE, replaced by se_ownership
+
+Also: the old `go9_ownership.json` queue file is outdated (uses non-SE arch, 5 epochs, PSW). Please ignore it and use `go9_se_ownership.json` instead.
+
 ### [2026-03-16 00:15] CRITICAL: 10 epochs is 47% better — new experiment needed
 
 Two breakthrough local findings:

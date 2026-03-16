@@ -1,0 +1,12 @@
+{
+  "name": "go9_se_ownership",
+  "priority": "high",
+  "depends_on": "go9_se_10ep_rom",
+  "hypothesis": "SE+GP + 10 epochs + ROM + ownership prediction (KataGo's 1.65x improvement). Ownership gives 361 bits of learning signal per game vs 1 bit from win/loss. Combined with 10 epochs (47% better) and ROM (5.5% better), this should be our strongest experiment.",
+  "run_script": "experiments/20260316_go9_se_ownership/run.py",
+  "gpu": "A4000",
+  "estimated_time": "10h (500 iters, ownership adds ~10% compute over se_10ep_rom)",
+  "requested_at": "2026-03-16T04:00:00Z",
+  "success_criteria": "Loss below 1.0 by iter 200. If loss plateaus above 1.2 for 100+ iters, kill. Compare directly against se_10ep_rom (same but without ownership).",
+  "notes": "Same as se_10ep_rom but with use_ownership_head=True and ownership_loss_weight=0.02. No PSW, no shaped_dirichlet (both shown to hurt). Uses C++ MCTS with native ownership collection."
+}
