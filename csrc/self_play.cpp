@@ -279,6 +279,33 @@ SelfPlayWorker::GameResult SelfPlayWorker::play_game(bool collect_ownership) {
 
     std::uniform_real_distribution<float> uniform(0.0f, 1.0f);
 
+    // Random opening moves (KataGo-style opening randomization)
+    if (config_.random_opening_moves > 0) {
+        for (int rom = 0; rom < config_.random_opening_moves; rom++) {
+            game_.get_valid_moves(game_state.data(), player, valid_buf.data(), scratch_);
+            // Collect valid non-pass moves
+            std::vector<int> valid_actions;
+            for (int a = 0; a < action_size - 1; a++) {  // exclude pass
+                if (valid_buf[a] > 0.5f) {
+                    valid_actions.push_back(a);
+                }
+            }
+            if (valid_actions.empty()) break;
+            // Pick random valid move
+            std::uniform_int_distribution<int> dist(0, valid_actions.size() - 1);
+            int action = valid_actions[dist(rng_)];
+            game_.get_next_state(game_state.data(), action, player, next_state.data(), scratch_);
+            std::memcpy(game_state.data(), next_state.data(), game_.state_size * sizeof(float));
+            // Check terminal
+            float terminal_value = 0.0f;
+            bool is_terminal = game_.check_terminal(game_state.data(), action, player,
+                                                     terminal_value, scratch_);
+            if (is_terminal) break;
+            player = -player;
+            move_count++;
+        }
+    }
+
     // Diagnostics accumulators (only for full-search moves)
     float sum_root_value = 0.0f;
     float sum_entropy = 0.0f;

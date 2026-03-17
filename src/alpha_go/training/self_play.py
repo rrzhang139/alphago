@@ -80,7 +80,7 @@ def self_play_game(
             valid = game.get_valid_moves(state, player)
             valid_actions = np.where(valid)[0]
             # Exclude pass from random opening moves
-            valid_actions = valid_actions[valid_actions != game.action_size - 1]
+            valid_actions = valid_actions[valid_actions != game.get_action_size() - 1]
             if len(valid_actions) == 0:
                 break
             action = int(np.random.choice(valid_actions))

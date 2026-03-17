@@ -51,6 +51,7 @@ def _convert_config(py_config: PyMCTSConfig):
     cfg.c_puct_base = getattr(py_config, 'c_puct_base', 0.0)
     cfg.coordinator_wait_us = getattr(py_config, 'coordinator_wait_us', 25)
     cfg.shaped_dirichlet = getattr(py_config, 'shaped_dirichlet', False)
+    cfg.random_opening_moves = getattr(py_config, '_random_opening_moves', 0)
     return cfg
 
 

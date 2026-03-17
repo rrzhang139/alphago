@@ -27,6 +27,7 @@ struct MCTSCppConfig {
     float c_puct_base = 0.0f;
     int coordinator_wait_us = 25;  // BatchInferenceCoordinator sleep (microseconds)
     bool shaped_dirichlet = false; // KataGo: bias noise toward high-prior moves
+    int random_opening_moves = 0;  // KataGo: play N random moves at game start for diversity
 };
 
 // Single training example
