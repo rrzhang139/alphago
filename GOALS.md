@@ -1,6 +1,6 @@
 # Goal Checklist
 
-Current objectives, evaluation criteria, and progression plan. Research agent maintains this. Both agents read it.
+Current objectives, evaluation criteria, and progression plan. Research agent maintains this.
 
 ## Current Goal
 
@@ -8,110 +8,166 @@ Current objectives, evaluation criteria, and progression plan. Research agent ma
 
 | Metric | Target | Current Best | How to Measure |
 |--------|--------|-------------|----------------|
-| vs GnuGo L1 | >80% win | 0% (Fix D, 100 iters, 200-400 sims) | `python scripts/eval_vs_gnugo.py --weights <path> --gnugo-level 1 --num-games 50 --num-sims 400` |
+| vs GnuGo L1 | >80% win | 0% (all models so far) | `python scripts/eval_vs_gnugo.py --weights <path> --gnugo-level 1 --num-games 50 --num-sims 400 --use-se --global-pool-value --num-res-blocks 6` |
 | vs GnuGo L5 | >50% win | untested | Same, `--gnugo-level 5` |
 | vs GnuGo L10 | >50% win | untested | Same, `--gnugo-level 10` |
-| vs Random | >95% win | 65% (Fix D, 100 iters, 200 sims) | Pipeline eval_games or manual |
-| Training loss | monotonically decreasing | 3.06 final, hump resolved (Fix D) | history.json from training run |
-| Policy entropy H(pi) | <1.5 (focused search) | ~2.2 (Fix D, 100 iters) | C++ MCTS diagnostics |
-| Search depth | >5.0 | ~3.0 (Fix D, 100 iters) | C++ MCTS diagnostics |
+| Training loss | <1.0 | **0.960** (se_10ep_rom, iter 286) | history.json |
+| Search depth | >8.0 | **9.1** (se_10ep_rom, iter 286) | C++ MCTS diagnostics |
 
-### Blocking Issues (RESOLVED)
-- ~~Training loss U-shapes after ~30 iterations (cosine LR + stale buffer)~~
-- Fix C and Fix D both completed 100 iters (2026-03-13). Both show a mid-training loss hump (iters 15-40) but **recover and continue decreasing**. This hump is natural: as the model improves, self-play generates harder data (P1 win rate rises 14%→40%, games lengthen), temporarily raising loss before the model adapts.
-- **Fix D (window buffer) is the winner**: final loss 3.06 vs 3.22 (Fix C). Value loss 0.26 vs 0.36. Window buffer keeps fresh data.
-- **Next blocker**: no vs_random eval was run (eval_games=0). Need to eval the Fix D model to measure actual play strength before scaling further.
+---
 
-### Learnings
-- The loss "U-shape" is not a bug — it's a natural phase transition in self-play training where improving models produce harder training data
-- Window buffer (last 10 iters) outperforms FIFO 200K for Go 9x9 training
-- Constant LR 0.001 is stable for 100 iterations (no cosine decay needed at this stage)
-- 5 epochs on window buffer > 2 epochs on FIFO (more thorough training on fresh data)
+## Bottleneck-First Research Strategy
 
-## Progression Plan
+**Philosophy**: Instead of tweaking dozens of small parameters, identify the ONE biggest bottleneck at each stage and fix it. KataGo achieved 50x efficiency over comparable methods by stacking ~6 high-impact improvements (each 1.25x-1.65x). We should focus on the same.
 
-Each goal builds on the previous. Don't skip ahead — validate each before moving on.
+### KataGo's Improvements Ranked by Impact (from the paper)
+
+| Rank | Technique | Speedup | Our Status | Notes |
+|------|-----------|---------|------------|-------|
+| 1 | **Auxiliary ownership/score targets** | 1.65x | ✅ se_ownership running | Biggest single win |
+| 2 | **Global pooling** | 1.60x | ✅ Implemented | In all SE+GP experiments |
+| 3 | **Game-specific input features** (liberties, ladder, pass-alive) | 1.55x | ⚠️ Liberty planes implemented, **ladders & pass-alive missing** | High priority gap |
+| 4 | **Playout cap randomization** | 1.37x | ✅ Implemented | In all GPU experiments |
+| 5 | **Auxiliary policy targets** (opponent's next move) | 1.30x | ❌ Not implemented | Medium priority |
+| 6 | **Policy target pruning + forced playouts** | 1.25x | ✅ Pruning done | Forced playouts not done |
+
+**Combined theoretical speedup**: 9.1x. We have ~4 of 6. The remaining ~2.5x comes from game-specific features and auxiliary policy targets.
+
+### Reference Implementation Comparison
+
+| System | Network | Games | GPU-hours | Strength |
+|--------|---------|-------|-----------|----------|
+| **michaelnny/alpha_zero** | 10 blocks, 128f | 1M+ | 320 (8×3090×40h) | Amateur 1-dan (beat CrazyStone 16/20) |
+| **ELF OpenGo** | 20 blocks, 256f | 20M | 48,000 (2000×V100) | Superhuman (20-0 vs top pros) |
+| **KataGo** | 6-20 blocks, 128-256f | ~5M | ~10,000 | Superhuman (50x more efficient than ELF) |
+| **Us (se_10ep_rom)** | 6 blocks, 128f | ~50K (500×100) | ~4 (1×A4000×8h) | Loss 0.96, 0/20 vs GnuGo L1 |
+
+**The gap is clear**: we've generated ~50K games. The reference needed 1M+. We need **20x more training data/games**, not parameter tweaks.
+
+---
+
+## What Actually Matters (ordered by impact)
+
+### Tier 1: Training Scale (10x+ impact) 🔴
+
+These are the "forest" — each one is worth more than all parameter tweaks combined.
+
+**1. More self-play games** — We have ~50K games. Reference used 1M+. This is probably our #1 bottleneck.
+- Action: Run 2000+ iterations (not 500), or increase games_per_iteration to 200-400
+- Cost: ~$5-10 for 2000 iters on A4000
+- Expected impact: Massive — more diverse positions = better generalization
+
+**2. Network capacity** — Our 6-block 128-filter network has ~1.9M params. Reference used 10 blocks (3.1M params). ELF used 20 blocks 256f (~25M params). Diminishing returns exist, but we may be undersized.
+- Action: Test 10 blocks 128f or 6 blocks 256f (double filters = 4x params for conv layers)
+- Cost: ~$3-5 for a 500-iter experiment
+- Expected impact: High — "doubling rollouts still boosts strength by ~200 ELO" (ELF finding, indicating model capacity is a bottleneck)
+
+**3. More simulations** — We use 200 sims. AlphaZero used 800. KataGo used 600-800 for training.
+- Action: Test 400 or 600 sims (with playout cap to manage cost)
+- Cost: ~2x per iteration
+- Expected impact: High — deeper search = higher quality training data
+
+### Tier 2: High-Impact Features (1.3-1.65x each) 🟡
+
+These are the KataGo improvements we haven't done yet.
+
+**4. Game-specific input features** — Ladders, pass-alive detection, ko threat count
+- Ladder detection alone is a huge deal: ELF found ladders were "learned slowly and never fully mastered" even at superhuman level
+- Pass-alive regions help the model understand which groups are unconditionally alive
+- Expected: 1.55x (KataGo measured)
+
+**5. Auxiliary policy targets** — Predict opponent's next move as an extra training signal
+- Provides regularization and forces the network to model both sides
+- Expected: 1.30x (KataGo measured)
+
+**6. Forced playouts** — Force MCTS to visit top-N policy moves at least once
+- Ensures search explores reasonable moves even when priors are wrong
+- Expected: Combined with pruning ~1.25x
+
+### Tier 3: Parameter Tuning (1-10% each) 🟢
+
+These are what we've been spending most time on. Each gives 5-15% at best.
+
+- FPU reduction, c_puct_base, gradient clipping, temperature schedule, etc.
+- **Lesson learned**: Parameters interact unpredictably. Individual A/B tests can mislead (c_puct_base + FPU conflict).
+- **Rule**: Only tune parameters AFTER Tier 1 and Tier 2 are addressed. Tuning a weak model is polishing a turd.
+
+---
+
+## Progression Plan (Revised)
 
 ### Phase 1: Stable Training ✅
-- **Goal**: Loss monotonically decreasing for 100+ iterations on Go 9x9
-- **Eval**: Training curves (loss, entropy, depth) from history.json
-- **Status**: Complete — Fix D (window buffer) shows loss 4.97→3.06 over 100 iters. Mid-training hump is natural (resolves by iter 50). Fix D model is current best.
-- **Next**: Eval Fix D model vs random, then proceed to Phase 2
+- Loss monotonically decreasing for 100+ iterations
+- **Done** — Fix D showed stable training, se_10ep_rom confirmed at 500 iters
 
-### Phase 2: Beat GnuGo Level 1 (~15 kyu) (current)
+### Phase 2: Beat GnuGo Level 1 (~15 kyu) — CURRENT
 - **Goal**: >80% win rate vs GnuGo level 1
 - **Eval**: `eval_vs_gnugo.py --gnugo-level 1 --num-games 50`
-- **Estimated**: 500+ iterations with SE architecture
-- **Status**: All 3 initial GPU experiments completed. 0/20 vs GnuGo L1 for all models. Model plays coherent Go (beats random easily) but lacks tactical depth.
 
-#### GPU Experiment Results (March 15)
-| Experiment | Iters | Architecture | Best Loss | vsGnuGo L1 | Cost | Key Finding |
-|-----------|-------|-------------|-----------|------------|------|-------------|
-| scale500 | 500 | CNN 4b 128f | 1.605 (iter 32) | 0/20 | $0.58 | **Plateaued at iter ~25**. 475 wasted iterations. |
-| fresh_correct | 300 | CNN 4b 128f | 1.639 (iter 250) | 0/20 | $0.50 | Plateau ~1.65-1.80 after iter 86. |
-| se_globalpool | 200 | **CNN 6b SE+GP** | **1.389** (iter 137) | 0/20 | $0.54 | **BEST. Still improving at iter 176 (1.416).** |
-| kitchen_sink | running | CNN 4b 128f GP | 1.80 (plateau iter 18-56+) | - | ongoing | PSW+VLW+shaped_dirichlet may be too aggressive |
+#### Current GPU Experiments
+| Experiment | Iter | Loss | Depth | Status |
+|-----------|------|------|-------|--------|
+| **se_10ep_rom** | 286/500 | **0.960** | 9.1 | 🔥 Phase transition — broke below 1.0 |
+| **se_ownership** | 266/500 | 1.125 | 8.2 | Catching up, no phase transition yet |
 
-#### Critical Findings
-1. **Plain CNN architecture hits a wall at loss ~1.6-1.7** — scale500 plateaued at iter 25, never improved in 475 more iters
-2. **SE blocks + global pool break through that wall** — reached 1.389 (15% better) in only 200 iters, still improving
-3. **More sims don't help**: 800 sims still 0/20 vs GnuGo L1 — network quality is the bottleneck
-4. **Model does play Go**: 100% vs random, builds territory. But no tactical reading
-5. **Life & death blindness** (key blocker): Model builds large frameworks (rootV=0.93) but groups aren't alive (no two eyes). GnuGo invades → captures all groups → only 6/35 stones survive. Value head rates dead positions as winning.
-6. **Ownership prediction** is the highest-impact fix: teaches model which stones survive to game end, directly addressing life & death blindness
-5. **Reference impl** (michaelnny/alpha_zero) used 10 res blocks, 150K gradient steps, 1M+ games to reach amateur 1-dan
+#### When These Complete: Decision Tree
+1. **Eval both vs GnuGo L1** with `eval_sweep.py`
+2. **If >50% vs GnuGo L1** → Move to Phase 3. Current approach works, just needs more scale.
+3. **If 0% vs GnuGo L1** → The bottleneck is NOT loss/training quality. It's one of:
+   - **Scale** (50K games isn't enough) → Run 2000-iter experiment
+   - **Network capacity** (6 blocks too small) → Test 10 blocks
+   - **Game-specific features** (no ladder/pass-alive understanding) → Implement ladders
+4. **If 10-40% vs GnuGo L1** → Promising but needs refinement. Try:
+   - More sims at eval time (800-1600)
+   - ROM-fixed follow-up experiment
+   - Ownership might help (if se_ownership does better than se_10ep_rom vs GnuGo)
 
-#### Breakthrough Local Findings (March 16)
-- **10 epochs >> 5 epochs**: loss 1.337 vs 2.537 in 5 iters (**47% better!**). All GPU experiments used 5 epochs — we've been under-training.
-- **Random opening moves (ROM=6)**: loss 2.393 vs 2.532 (**5.5% better**), more diverse search (H=1.32 vs 0.51), 20% faster
-- **10 res blocks marginal**: only 2.4% better loss but 43% slower. Not worth the cost.
-- **10 epochs optimal**: 15/20 epochs overfit (loss increases after iter 3-4 locally)
-- **c_puct=1.5 confirmed**: 1.0 too narrow, 2.0 too wide. 1.5 is the sweet spot.
-- **LR warmup hurts**: slows early learning. Constant LR=0.001 is best.
-- **Local ceiling ~1.5**: 30-iter test plateaus at 1.508 then upticks. GPU (200 sims, 100 games) needed for lower loss.
-- **GnuGo root cause**: model passes prematurely (5x in one game!) and loses groups. Ownership prediction should fix.
-
-#### Current Priorities (ordered)
-1. **se_10ep_rom** (RUNNING, iter 201/500): Loss **1.107** best (iter 192) — 20% below previous best. Strongest model ever. Still descending.
-2. **se_ownership** (RUNNING, iter 185/500): Loss **~1.172** best — catching up to se_10ep_rom (was 0.07 behind at iter 100, now ~0.035 behind). KataGo's claim that ownership helps more at later stages is playing out.
-3. **Next experiment**: Same as se_10ep_rom + working ROM (current runs silently skip ROM due to C++ bug). **DO NOT add c_puct_base** — it interferes with FPU=0.2 (combined: 7.6% worse despite each individually helping 12%+).
-4. ~~se_best~~: Pod died. Superseded by se_10ep_rom (10 epochs >> 5 epochs).
-5. liberty_planes: deprioritized (ownership is more impactful)
-
-#### Local Findings (March 17)
-- **C++ ROM bug fixed** — random_opening_moves was silently ignored in C++ MCTS. Fixed and pushed.
-- **Weight decay 1e-4 validated** (7.3% better) — already in GPU configs ✅
-- **FPU=0.0 > FPU=0.2 locally** (12.6% better at 50 sims), but may flip at 200 sims
-- **Gradient clipping neutral** — not worth adding
-- **c_puct_base=19652 individually 12.8% better, BUT interferes with FPU=0.2** (combined 7.6% worse). DO NOT combine.
-- **Ownership neutral at 5 local iters** with GPU-like config — benefit only emerges at GPU scale (100+ iters)
-- **Key lesson**: search parameters (FPU, c_puct_base) interact unpredictably. Test in combination, not individually.
-- **ROM-fixed follow-up queued**: `experiments/queue/go9_se_rom_fixed.json`, warm-starts from se_10ep_rom
-
-#### When GPU Experiments Complete (Action Items)
-1. `git pull` to get results
-2. Run `python scripts/eval_sweep.py --weights <path> --use-se --global-pool-value --num-res-blocks 6 --num-games 20` for both models
-3. If either beats GnuGo L1: celebrate, move to Phase 3
-4. If neither beats GnuGo L1: run ROM-fixed follow-up experiment, investigate if ownership model is better at tactical positions
-5. Diagnostic insight: model plays reasonable Go in self-play (0 premature passes, depth 8-14). Pass problem only manifests vs external opponents. More diverse training (ROM, more iters) should help.
+#### Next Experiment Priority (after current runs finish)
+1. **Scale test**: 2000 iters, same config as se_10ep_rom (highest priority if 0% vs GnuGo)
+2. **ROM-fixed**: 200 iters warm-start (queued, tests if ROM helps at GPU scale)
+3. **Larger network**: 10 blocks 128f or 6 blocks 256f (if scale alone doesn't help)
+4. **Ladder detection**: Input feature that directly addresses tactical blindness
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
-- **Eval**: `eval_vs_gnugo.py --gnugo-level 5 --num-games 50`
-- **Estimated**: 200+ iterations, may need larger network or more sims
+- **Likely needs**: 1000+ iterations, possibly larger network, ownership
 - **Status**: Not started
 
 ### Phase 4: Beat GnuGo Level 10 (~5 kyu)
 - **Goal**: >50% win rate vs GnuGo level 10
-- **Eval**: `eval_vs_gnugo.py --gnugo-level 10 --num-games 50`
-- **Estimated**: 500+ iterations or architectural improvements
+- **Likely needs**: Larger network (10+ blocks), 2000+ iterations, game-specific features
 - **Status**: Not started
 
 ### Phase 5: Go 19x19 (stretch)
 - **Goal**: Functional training on full-size Go board
-- **Eval**: vs GnuGo on 19x19, training stability
-- **Estimated**: Multi-GPU, larger network, weeks of training
+- **Needs**: Multi-GPU, 20+ blocks, months of training
 - **Status**: Future
+
+---
+
+## Key Learnings
+
+### What Actually Moved the Needle (ordered by impact)
+1. **10 epochs vs 5 epochs**: 47% better loss. Biggest single finding.
+2. **SE blocks + global pool**: Broke through CNN plateau (1.6→1.4). Architecture > hyperparameters.
+3. **C++ MCTS engine**: 5x faster self-play. Enables more training.
+4. **Window buffer**: Keeps fresh data, prevents stale gradient signal.
+5. **Playout cap**: 4-5x faster games with equal quality.
+
+### What Didn't Matter Much
+- FPU reduction: 12.6% locally, but interacts with other params
+- c_puct_base: 12.8% alone, but conflicts with FPU
+- Gradient clipping: neutral
+- Progressive sims: marginal
+- Shaped Dirichlet: hurt when combined with other tricks (kitchen_sink)
+
+### Meta-Learnings
+- **Test parameters in combination**, not individually. Interactions can reverse individual results.
+- **Local tests (50 sims, 5 iters) can't validate search parameters** — these depend on sim count and training length.
+- **Architecture changes > hyperparameter tuning** at our scale.
+- **The model plays reasonable Go in self-play** (0 premature passes). Problems only appear vs external opponents it hasn't seen.
+
+---
 
 ## GnuGo Strength Reference
 
