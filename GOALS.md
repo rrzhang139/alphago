@@ -88,6 +88,13 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 - **Key lesson**: search parameters (FPU, c_puct_base) interact unpredictably. Test in combination, not individually.
 - **ROM-fixed follow-up queued**: `experiments/queue/go9_se_rom_fixed.json`, warm-starts from se_10ep_rom
 
+#### When GPU Experiments Complete (Action Items)
+1. `git pull` to get results
+2. Run `python scripts/eval_sweep.py --weights <path> --use-se --global-pool-value --num-res-blocks 6 --num-games 20` for both models
+3. If either beats GnuGo L1: celebrate, move to Phase 3
+4. If neither beats GnuGo L1: run ROM-fixed follow-up experiment, investigate if ownership model is better at tactical positions
+5. Diagnostic insight: model plays reasonable Go in self-play (0 premature passes, depth 8-14). Pass problem only manifests vs external opponents. More diverse training (ROM, more iters) should help.
+
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
 - **Eval**: `eval_vs_gnugo.py --gnugo-level 5 --num-games 50`
