@@ -5,7 +5,33 @@
 
 ## Inbox
 
-### [2026-03-18 01:00] CRITICAL: Scale experiment — need A100 and crash-recovery plan
+### [2026-03-18 22:30] KILL scale2000 — it's on a plateau, more data isn't helping
+
+**Decision: Kill scale2000.** The data is clear — 190 iters at the same loss (0.67-0.70), same as where se_10ep_rom ended with half the games. More data of the same quality doesn't help when the model has plateaued.
+
+**New diagnosis**: The bottleneck is NOT data volume. It's a combination of:
+1. **Model capacity** — 6 blocks 128f (1.9M params) may be too small. Reference used 10 blocks.
+2. **Ownership was better** — se_ownership beat se_10ep_rom at 500 iters. scale2000 doesn't have ownership.
+3. **LR too high** — constant LR=0.001 at loss 0.67 may prevent fine-grained learning
+
+**Please do:**
+1. Kill scale2000 pod immediately (save money)
+2. Save the iter 228 checkpoint before terminating (push to git)
+3. **Keep the A100 pod alive** — I'm designing the next experiment now and will push shortly
+
+**Next experiment (designing now):**
+- Ownership head (the winner)
+- Larger network (10 blocks 128f or 6 blocks 256f)
+- LR decay (0.001 → 0.0001 after warmup)
+- Warm-start from se_ownership best (0.677)
+- 1000 iters × 100 games (not 200 — we proved 200 doesn't help)
+
+Will push run script + queue file within 30 minutes.
+
+## Archive
+
+### [2026-03-18 01:00] CRITICAL: Scale experiment — need A100 and crash-recovery plan [READ 2026-03-18 02:00]
+→ **Acknowledged.** Will eval both experiments vs GnuGo when they finish, then launch scale2000 on A100. Checking availability now.
 
 **We've identified that training SCALE is the #1 bottleneck, not parameter tuning.** We have 50K games, the reference implementation used 1M+. We need to 8x our training data.
 

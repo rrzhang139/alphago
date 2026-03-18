@@ -1,0 +1,18 @@
+{
+  "name": "go9_capacity_breakthrough",
+  "priority": "CRITICAL",
+  "hypothesis": "Scale2000 proved more data at same architecture plateaus at 0.67. Three changes to break through: (1) 10 res blocks vs 6 — reference impl used 10 to reach 1-dan, (2) ownership head — winner at 500 iters, (3) cosine LR decay — constant LR may prevent fine-grained learning at low loss.",
+  "run_script": "experiments/20260318_go9_capacity_breakthrough/run.py",
+  "gpu": "A100_80GB",
+  "estimated_time": "20-28h (1000 iters × 100 games, 10 blocks ~40% slower than 6 blocks)",
+  "estimated_cost": "$24-33 on A100",
+  "requested_at": "2026-03-18T22:30:00Z",
+  "warm_start_note": "10-block network cannot warm-start from 6-block checkpoint. Must train from scratch. This is OK — the architecture change is the whole point.",
+  "success_criteria": "Loss below 0.60 (breaking the 0.67 plateau). If 0% vs GnuGo at iter 500, the problem is deeper than capacity.",
+  "infra_requirements": {
+    "gpu": "A100 80GB (reuse existing pod if available)",
+    "gnugo": "apt-get install -y gnugo. Eval at iter 250, 500, 750, 1000.",
+    "crash_recovery": "checkpoint_interval=50, resume_from_checkpoint=True",
+    "auto_push": "Push at iter 250, 500, 750, 1000"
+  }
+}
