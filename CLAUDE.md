@@ -23,6 +23,30 @@ You are the **research director**, not the implementer. Your workflow:
 
 Claude handles all implementation. You accumulate a growing surface area of **research knobs** — techniques from papers, blog posts, and your own experiments — that you can mix, match, and tune.
 
+## Scaling Laws — Hard-Won Lessons (March 2026)
+
+**The #1 lever is model capacity. Scale model size FIRST, then tune everything else.**
+
+| Priority | Action | Impact | Evidence |
+|----------|--------|--------|----------|
+| 1 | **Scale model size** (res blocks, filters) | 10x+ | 6→10 blocks broke through a loss plateau that 8x more data couldn't |
+| 2 | **Architecture improvements** (SE blocks, global pool, ownership head) | 1.5-2x | SE+GP was 15% better than plain CNN at same block count |
+| 3 | **Training improvements** (epochs, LR schedule, buffer strategy) | 1.3-1.5x | 10 epochs was 47% better than 5 epochs |
+| 4 | **Data volume** (more games/iter, more iters) | Diminishing | scale2000 proved doubling games doesn't help at capacity ceiling |
+| 5 | **MCTS parameter tuning** (FPU, c_puct, temperature) | 5-15% | Parameters interact unpredictably; often cancel each other out |
+
+**Methodology for finding the right model size:**
+1. **Test on a smaller board first** (e.g. 7x7 instead of 9x9) — 3-5x cheaper, same scaling dynamics
+2. **Sweep block counts** (2, 4, 6, 8, 10, 12) at fixed training config, ~8 iters each
+3. **Find the knee** — where adding blocks gives <5% marginal improvement
+4. **Apply that size to the target board** — it will generally transfer
+
+**Anti-patterns to avoid:**
+- ❌ Tweaking FPU/c_puct before you've found the right model size
+- ❌ Throwing more data at a model that has plateaued (scale2000 mistake)
+- ❌ Testing parameters individually then combining them (they interact — test combinations)
+- ❌ Running 2000 iters before checking if 200 iters already plateaued
+
 ## Quick Start
 
 ```bash
