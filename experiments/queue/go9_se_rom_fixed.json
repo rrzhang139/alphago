@@ -1,0 +1,13 @@
+{
+  "name": "go9_se_rom_fixed",
+  "priority": "medium",
+  "depends_on": "go9_se_10ep_rom",
+  "hypothesis": "Random opening moves (ROM=6) were silently ignored in all C++ MCTS experiments (bug fixed March 17). ROM showed 5.5% improvement locally. Warm-starting from se_10ep_rom best checkpoint with working ROM should show additional gains.",
+  "run_script": "experiments/20260317_go9_se_rom_fixed/run.py",
+  "gpu": "A4000",
+  "estimated_time": "4h (200 iters from warm start)",
+  "requested_at": "2026-03-17T19:30:00Z",
+  "warm_start": "experiments/20260316_go9_se_10ep_rom/data/checkpoints/best.pt",
+  "success_criteria": "Loss below se_10ep_rom's best. If no improvement after 100 iters, ROM doesn't help at GPU scale.",
+  "notes": "REQUIRES git pull (March 17 commits) to get the C++ ROM fix. Same config as se_10ep_rom but with the ROM bug fixed. A/B test for ROM value at scale."
+}
