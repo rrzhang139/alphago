@@ -72,9 +72,9 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 - **GnuGo root cause**: model passes prematurely (5x in one game!) and loses groups. Ownership prediction should fix.
 
 #### Current Priorities (ordered)
-1. **se_10ep_rom** (RUNNING, iter 100/500): Loss **1.162** — 16.3% below previous best. Strongest model ever. Still descending.
-2. **se_ownership** (RUNNING, iter 94/500): Loss **1.232** — 11.3% below previous best. May catch up as ownership helps life/death learning.
-3. **Next experiment**: Same as se_10ep_rom + c_puct_base=19652 + working ROM (current runs don't have these fixes). 12.8% additional improvement expected.
+1. **se_10ep_rom** (RUNNING, iter 201/500): Loss **1.107** best (iter 192) — 20% below previous best. Strongest model ever. Still descending.
+2. **se_ownership** (RUNNING, iter 185/500): Loss **~1.172** best — catching up to se_10ep_rom (was 0.07 behind at iter 100, now ~0.035 behind). KataGo's claim that ownership helps more at later stages is playing out.
+3. **Next experiment**: Same as se_10ep_rom + working ROM (current runs silently skip ROM due to C++ bug). **DO NOT add c_puct_base** — it interferes with FPU=0.2 (combined: 7.6% worse despite each individually helping 12%+).
 4. ~~se_best~~: Pod died. Superseded by se_10ep_rom (10 epochs >> 5 epochs).
 5. liberty_planes: deprioritized (ownership is more impactful)
 
