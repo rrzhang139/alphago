@@ -56,6 +56,7 @@ def main():
             root_fpu_reduction=0.1,
             coordinator_wait_us=25,
             policy_target_pruning=0.03,
+            c_puct_base=19652.0,  # AlphaZero log-scaling: 12.8% better locally
         ),
         network=NetworkConfig(
             network_type="cnn",
