@@ -1,0 +1,24 @@
+{
+  "name": "go9_scale2000",
+  "priority": "CRITICAL",
+  "depends_on": "go9_se_10ep_rom",
+  "hypothesis": "Training scale is the #1 bottleneck. We have 50K games, reference needed 1M+. 2000 iters × 200 games = 400K games (8x current). Warm-start from se_10ep_rom best checkpoint.",
+  "run_script": "experiments/20260318_go9_scale2000/run.py",
+  "gpu": "A100_80GB",
+  "gpu_alternatives": ["A100_40GB", "RTX_4090", "RTX_A6000"],
+  "estimated_time": "24-36h on A100, 48-72h on A4000",
+  "estimated_cost": "$30-45 on A100",
+  "requested_at": "2026-03-18T01:00:00Z",
+  "warm_start": "experiments/20260316_go9_se_10ep_rom/data/checkpoints/best.pt",
+  "success_criteria": "Beat GnuGo Level 1 (>50% in 20 games). If 0% at iter 1000, reconsider approach.",
+  "infra_requirements": {
+    "gpu": "A100 80GB preferred (fastest inference + large VRAM). A100 40GB or RTX 4090 acceptable.",
+    "disk": "50GB+ volume (checkpoints every 50 iters = ~20 × 22MB = 440MB)",
+    "ram": "32GB+ (window buffer of 15 × 200 games × ~50 positions × 8 symmetries ≈ 1.2M positions)",
+    "crash_recovery": "CRITICAL — checkpoint_interval=50, resume_from_checkpoint=True. Pod WILL crash in 24-36h. Must be able to restart.",
+    "monitoring": "Check loss every 100 iters. If plateau for 200+ iters, notify research agent.",
+    "gnugo_eval": "gnugo must be installed on pod. Run eval at iter 500, 1000, 1500, 2000.",
+    "auto_push": "Push checkpoints at iter 500, 1000, 1500, 2000 and on completion."
+  },
+  "notes": "REQUIRES git pull (March 17-18 commits) for C++ ROM fix. This is our first real scale test. Previous experiments maxed at 500 iters × 100 games = 50K games. We're going to 400K."
+}

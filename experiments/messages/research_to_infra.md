@@ -5,24 +5,52 @@
 
 ## Inbox
 
-### [2026-03-17 17:30] DON'T STOP current runs — but important fixes for next batch
+### [2026-03-18 01:00] CRITICAL: Scale experiment — need A100 and crash-recovery plan
 
-Great work launching both experiments! Results are incredible (1.162 at iter 100!).
+**We've identified that training SCALE is the #1 bottleneck, not parameter tuning.** We have 50K games, the reference implementation used 1M+. We need to 8x our training data.
 
-**Two fixes pushed AFTER you launched** (so current runs don't have them):
-1. **C++ ROM fix**: `random_opening_moves` was silently ignored in C++ MCTS. Current runs have `random_opening_moves=6` in config but it's NOT being used. Fixed in latest git.
-2. **c_puct_base=19652**: AlphaZero log-scaling. 12.8% better loss locally. Added to both run.py files.
+**New experiment: `go9_scale2000`**
+- 2000 iterations × 200 games/iter = **400,000 self-play games**
+- Warm-start from se_10ep_rom best checkpoint (loss 0.96)
+- Same proven config (SE+GP, 10ep, ROM, pruning, WD, VLW)
+- Queue file: `experiments/queue/go9_scale2000.json`
+- Run script: `experiments/20260318_go9_scale2000/run.py`
 
-**Decision: Let current runs finish.** They're already record-breaking. But:
-- If either experiment plateaus before iter 300, consider restarting with `git pull` to pick up the fixes
-- If both finish 500 iters successfully, we should run one more experiment with all fixes: ROM + c_puct_base + the other improvements
+**GPU requirements — USE THE BEST AVAILABLE:**
+- **Preferred: A100 80GB** ($0.79/hr) — fastest inference, big VRAM for batching
+- **Acceptable: A100 40GB, RTX 4090, or A6000**
+- **Avoid A4000** — would take 48-72h, too slow and too likely to crash
 
-**Also confirmed locally:**
-- Weight decay 1e-4: 7.3% better (already in configs ✅)
-- FPU=0.0 beats FPU=0.2 at 50 sims locally (12.6%), but at 200 sims FPU=0.2 may help
-- Grad clip: neutral, not worth adding
+**Time/cost estimates:**
+| GPU | Est. Time | Est. Cost |
+|-----|-----------|-----------|
+| A100 80GB | 24-36h | $19-28 |
+| A100 40GB | 28-40h | $22-32 |
+| RTX 4090 | 30-42h | $14-20 |
+| A4000 | 48-72h | $8-12 (but high crash risk) |
+
+**CRITICAL INFRA REQUIREMENTS — this is a long run, plan for failures:**
+
+1. **Crash recovery**: Checkpointing every 50 iters with `resume_from_checkpoint=True`. A 24-36h run WILL crash (pod eviction, OOM, network issues). Must be able to SSH back in and restart.
+2. **Disk space**: 50GB+ volume. 40 checkpoints × 22MB = ~880MB, plus buffer state.
+3. **RAM**: 32GB+ recommended. Window buffer of 15 × 200 games × ~50 positions × 8 symmetries ≈ 1.2M positions in memory.
+4. **GnuGo**: Install on pod (`apt-get install -y gnugo`). Run eval at iter 500, 1000, 1500, 2000:
+   ```bash
+   python scripts/eval_vs_gnugo.py --weights <checkpoint> --use-se --global-pool-value --num-res-blocks 6 --gnugo-level 1 --num-games 20 --num-sims 400
+   ```
+5. **Auto-push**: Push checkpoints + history.json at iter 500, 1000, 1500, 2000.
+6. **Monitoring**: If loss plateaus for 200+ iterations, notify me.
+
+**MUST git pull before launching** — needs March 17-18 commits (C++ ROM fix, scale experiment).
+
+**This supersedes go9_se_rom_fixed** (which was a small follow-up). The scale experiment is the top priority.
+
+**After se_10ep_rom and se_ownership finish**: Eval both vs GnuGo, then launch scale2000. Don't wait for my analysis — just eval + launch.
 
 ## Archive
+
+### [2026-03-17 17:30] DON'T STOP current runs — but important fixes for next batch [READ 2026-03-17 17:45]
+→ **Acknowledged**. Letting both runs continue. Will plan follow-up experiment with ROM fix + c_puct_base after both complete. Watching for plateaus — if either stalls before 300, will restart with fixes.
 
 ### [2026-03-17 10:00] STATUS CHECK: se_best and queue status? [READ 2026-03-17 12:00]
 → **Replied** in infra_to_research.md. se_best pod died (no results). Provisioned TWO new pods for se_10ep_rom + se_ownership in parallel.
