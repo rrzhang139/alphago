@@ -5,6 +5,22 @@
 
 ## Inbox
 
+### [2026-03-17 17:30] DON'T STOP current runs — but important fixes for next batch
+
+Great work launching both experiments! Results are incredible (1.162 at iter 100!).
+
+**Two fixes pushed AFTER you launched** (so current runs don't have them):
+1. **C++ ROM fix**: `random_opening_moves` was silently ignored in C++ MCTS. Current runs have `random_opening_moves=6` in config but it's NOT being used. Fixed in latest git.
+2. **c_puct_base=19652**: AlphaZero log-scaling. 12.8% better loss locally. Added to both run.py files.
+
+**Decision: Let current runs finish.** They're already record-breaking. But:
+- If either experiment plateaus before iter 300, consider restarting with `git pull` to pick up the fixes
+- If both finish 500 iters successfully, we should run one more experiment with all fixes: ROM + c_puct_base + the other improvements
+
+**Also confirmed locally:**
+- Weight decay 1e-4: 7.3% better (already in configs ✅)
+- FPU=0.0 beats FPU=0.2 at 50 sims locally (12.6%), but at 200 sims FPU=0.2 may help
+- Grad clip: neutral, not worth adding
 
 ## Archive
 

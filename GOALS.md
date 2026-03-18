@@ -72,10 +72,18 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 - **GnuGo root cause**: model passes prematurely (5x in one game!) and loses groups. Ownership prediction should fix.
 
 #### Current Priorities (ordered)
-1. **se_best** (RUNNING on pod): 500 iters SE+GP warm-start, 5 epochs (may be under-trained)
-2. **se_10ep_rom** (QUEUED, highest priority): SE+GP + **10 epochs** + ROM=6, from scratch, 500 iters. Should significantly outperform se_best.
-3. **se_ownership** (QUEUED, after se_10ep_rom): SE+GP + 10ep + ROM + ownership head. KataGo's 1.65x improvement. Should fix premature passing.
-4. liberty_planes: deprioritized (ownership is more impactful)
+1. **se_10ep_rom** (RUNNING, iter 100/500): Loss **1.162** — 16.3% below previous best. Strongest model ever. Still descending.
+2. **se_ownership** (RUNNING, iter 94/500): Loss **1.232** — 11.3% below previous best. May catch up as ownership helps life/death learning.
+3. **Next experiment**: Same as se_10ep_rom + c_puct_base=19652 + working ROM (current runs don't have these fixes). 12.8% additional improvement expected.
+4. ~~se_best~~: Pod died. Superseded by se_10ep_rom (10 epochs >> 5 epochs).
+5. liberty_planes: deprioritized (ownership is more impactful)
+
+#### Local Findings (March 17)
+- **c_puct_base=19652 is 12.8% better** — added to GPU configs, but current runs started before this fix
+- **C++ ROM bug fixed** — current GPU runs don't use ROM despite config setting (C++ silently ignored it)
+- **Weight decay 1e-4 validated** (7.3% better) — already in GPU configs ✅
+- **FPU=0.0 > FPU=0.2 locally** (12.6% better at 50 sims), but may flip at 200 sims
+- **Gradient clipping neutral** — not worth adding
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
