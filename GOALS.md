@@ -79,11 +79,14 @@ Each goal builds on the previous. Don't skip ahead — validate each before movi
 5. liberty_planes: deprioritized (ownership is more impactful)
 
 #### Local Findings (March 17)
-- **c_puct_base=19652 is 12.8% better** — added to GPU configs, but current runs started before this fix
-- **C++ ROM bug fixed** — current GPU runs don't use ROM despite config setting (C++ silently ignored it)
+- **C++ ROM bug fixed** — random_opening_moves was silently ignored in C++ MCTS. Fixed and pushed.
 - **Weight decay 1e-4 validated** (7.3% better) — already in GPU configs ✅
 - **FPU=0.0 > FPU=0.2 locally** (12.6% better at 50 sims), but may flip at 200 sims
 - **Gradient clipping neutral** — not worth adding
+- **c_puct_base=19652 individually 12.8% better, BUT interferes with FPU=0.2** (combined 7.6% worse). DO NOT combine.
+- **Ownership neutral at 5 local iters** with GPU-like config — benefit only emerges at GPU scale (100+ iters)
+- **Key lesson**: search parameters (FPU, c_puct_base) interact unpredictably. Test in combination, not individually.
+- **ROM-fixed follow-up queued**: `experiments/queue/go9_se_rom_fixed.json`, warm-starts from se_10ep_rom
 
 ### Phase 3: Beat GnuGo Level 5 (~10 kyu)
 - **Goal**: >50% win rate vs GnuGo level 5
