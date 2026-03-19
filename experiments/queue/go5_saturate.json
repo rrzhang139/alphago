@@ -1,0 +1,19 @@
+{
+  "name": "go5_saturate",
+  "priority": "CRITICAL",
+  "hypothesis": "9x9 model still 0/20 vs GnuGo L1 even at loss 0.55. Switching to 5x5 to validate the algorithm can beat GnuGo at ALL before scaling up. Two configs: 20b×256f (33M params, absurdly large) and 10b×128f (3M params). If the big model beats GnuGo on 5x5, we know the algorithm works and capacity is the key. If it doesn't, the problem is fundamental.",
+  "run_script": "experiments/20260319_go5_saturate/run.py",
+  "gpu": "A100_80GB",
+  "gpu_alternatives": ["A100_40GB", "RTX_4090"],
+  "estimated_time": "4-8h total (5x5 is very fast: ~25 actions, short games). Two configs × 500 iters.",
+  "estimated_cost": "$5-10 on A100",
+  "requested_at": "2026-03-19T21:00:00Z",
+  "success_criteria": "Beat GnuGo Level 1 on 5x5 (>50% in 20 games). Stretch: beat Level 5.",
+  "infra_requirements": {
+    "gpu": "A100 80GB or any fast GPU — 5x5 is small, even A4000 would be fast",
+    "gnugo": "apt-get install -y gnugo (CRITICAL — script runs GnuGo eval automatically)",
+    "git_pull": "MUST git pull to get go5 game registration and eval --use-ownership-head flag",
+    "disk": "20GB sufficient"
+  },
+  "notes": "This is a validation experiment. 5x5 Go is simple enough that a 33M param model should dominate. If it can't beat GnuGo L1 on 5x5, our training pipeline has a fundamental issue beyond model capacity. REQUIRES: git pull for go5 registration + eval_vs_gnugo.py ownership flag."
+}

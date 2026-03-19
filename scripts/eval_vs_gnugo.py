@@ -216,6 +216,8 @@ def main():
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--liberty-planes", action="store_true",
                         help="Use liberty planes (23 input planes)")
+    parser.add_argument("--use-ownership-head", action="store_true",
+                        help="Model has ownership head (needed to load weights)")
     args = parser.parse_args()
 
     game = Go(size=args.board_size, use_liberty_planes=args.liberty_planes)
@@ -225,6 +227,7 @@ def main():
         num_res_blocks=args.num_res_blocks,
         use_se=args.use_se,
         global_pool_value=args.global_pool_value,
+        use_ownership_head=getattr(args, 'use_ownership_head', False),
     )
     model = create_model(game, net_config, lr=0.001)
     model.load(args.weights)

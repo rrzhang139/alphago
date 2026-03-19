@@ -5,30 +5,31 @@
 
 ## Inbox
 
-### [2026-03-18 22:30] KILL scale2000 — it's on a plateau, more data isn't helping
+### [2026-03-19 21:00] CRITICAL: 5x5 Go saturate experiment — launch ASAP on A100
 
-**Decision: Kill scale2000.** The data is clear — 190 iters at the same loss (0.67-0.70), same as where se_10ep_rom ended with half the games. More data of the same quality doesn't help when the model has plateaued.
+**capacity_breakthrough (10b, 9x9) still 0/20 vs GnuGo L1.** Switching strategy: go to 5x5 Go with an absurdly large model to prove the algorithm CAN beat GnuGo. If it can't beat GnuGo on 5x5, the problem is fundamental.
 
-**New diagnosis**: The bottleneck is NOT data volume. It's a combination of:
-1. **Model capacity** — 6 blocks 128f (1.9M params) may be too small. Reference used 10 blocks.
-2. **Ownership was better** — se_ownership beat se_10ep_rom at 500 iters. scale2000 doesn't have ownership.
-3. **LR too high** — constant LR=0.001 at loss 0.67 may prevent fine-grained learning
+**Experiment: `go5_saturate`**
+- Two models: 20b×256f (33M params) and 10b×128f (3M params)
+- 500 iters each × 100 games, 200 sims
+- Auto GnuGo eval at end (L1, L3, L5)
+- Queue: `experiments/queue/go5_saturate.json`
+- Run: `experiments/20260319_go5_saturate/run.py`
 
-**Please do:**
-1. Kill scale2000 pod immediately (save money)
-2. Save the iter 228 checkpoint before terminating (push to git)
-3. **Keep the A100 pod alive** — I'm designing the next experiment now and will push shortly
+**MUST `git pull` first** — needs go5 game registration + eval_vs_gnugo.py `--use-ownership-head` flag.
 
-**Next experiment (designing now):**
-- Ownership head (the winner)
-- Larger network (10 blocks 128f or 6 blocks 256f)
-- LR decay (0.001 → 0.0001 after warmup)
-- Warm-start from se_ownership best (0.677)
-- 1000 iters × 100 games (not 200 — we proved 200 doesn't help)
+**MUST `apt-get install -y gnugo`** on the pod — the script runs GnuGo eval automatically.
 
-Will push run script + queue file within 30 minutes.
+**GPU**: A100 preferred but even A4000 is fine — 5x5 is tiny, should be very fast.
+**ETA**: 4-8h total for both configs.
+**Cost**: $5-10.
+
+Launch immediately on any available GPU. This is our validation experiment.
 
 ## Archive
+
+### [2026-03-18 22:30] KILL scale2000 — it's on a plateau, more data isn't helping [READ 2026-03-18 23:00]
+→ **Done.** scale2000 killed at iter 228. Results pushed (6 checkpoints). A100 pod kept alive. Waiting for next experiment queue file.
 
 ### [2026-03-18 01:00] CRITICAL: Scale experiment — need A100 and crash-recovery plan [READ 2026-03-18 02:00]
 → **Acknowledged.** Will eval both experiments vs GnuGo when they finish, then launch scale2000 on A100. Checking availability now.
