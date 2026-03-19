@@ -311,19 +311,31 @@ A living catalog of tunable knobs. Each row is something you can experiment with
 
 - **Project**: https://wandb.ai/rzhang139/alphazero
 - **Entity**: `rzhang139`
-- **Weight storage**: Use W&B Artifacts for all model weights (preferred over Git LFS for files >10MB)
+- **Weight storage**: Use W&B Artifacts for all model weights. **DO NOT commit .pt files to git.**
+
+**⚠️ STOP USING GIT LFS FOR WEIGHTS:**
+The repo currently has 2.4GB of .pt files in Git LFS (134 files). This bloats the repo and makes clones slow.
+- `.gitattributes` tracks `*.pt` via LFS — this should be REMOVED once existing LFS files are cleaned up
+- **New experiments**: Upload best.pt to W&B Artifacts, don't `git add` checkpoint files
+- **On pods**: Push only `history.json`, `config.json`, and reports to git. Upload weights to W&B.
+- **For eval**: Download weights from W&B Artifacts (see below)
 
 **Uploading weights** (in experiment scripts or training pipeline):
 ```python
-artifact = wandb.Artifact('model-name', type='model')
+import wandb
+run = wandb.init(project="alphazero", entity="rzhang139")
+artifact = wandb.Artifact('go9-capacity-10b', type='model',
+                          metadata={'blocks': 10, 'filters': 128, 'loss': 0.55})
 artifact.add_file('path/to/best.pt', name='best.pt')
-wandb.log_artifact(artifact)
+run.log_artifact(artifact)
+run.finish()
 ```
 
 **Downloading weights** (for inference/eval):
 ```python
+import wandb
 api = wandb.Api()
-artifact = api.artifact('rzhang139/alphazero/model-name:latest')
+artifact = api.artifact('rzhang139/alphazero/go9-capacity-10b:latest')
 artifact_dir = artifact.download('/tmp/weights')
 model.load(os.path.join(artifact_dir, 'best.pt'))
 ```
